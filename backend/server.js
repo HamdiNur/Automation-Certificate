@@ -1,8 +1,10 @@
+import dotenv from 'dotenv';
 import express from 'express';
 import cors from 'cors';
 import { connectDB } from './config/db.js';
 import userRouter from './routes/userRoute.js';
-import dotenv from 'dotenv';
+import studentRoutes from './routes/studentRoutes.js';
+
 
 dotenv.config(); // 
 
@@ -19,7 +21,8 @@ app.use(cors())
 //db connection 
 connectDB();
 //API endpoint
-app.use("/api/users",userRouter)
+app.use("/api/users",userRouter);
+app.use('/api/students', studentRoutes);
 
 app.get("/",(req,res)=>{
     res.send("API WORKING")
