@@ -13,21 +13,39 @@ const userSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required: [true, 'Password is required'],
+    required: [true, 'Password is require'],
     minlength: 6
   },
+  rawPassword: {
+    type: String,
+    select: false // prevents accidental exposure
+  },  
   role: {
     type: String,
-    enum: ['admin', 'student', 'staff','finance'], // Add more roles as needed
+    enum: ['admin', 'student', 'staff', 'finance', 'library', 'faculty', 'exam_office', 'lab'],
     default: 'student'
   },
   userId: {
     type: String,
     required: true,
     unique: true
+  },
+  isActive: {
+    type: Boolean,
+    default: true
+  },
+  lastLogin: {
+    type: Date
+  },
+  profilePicture: {
+    type: String,
+    default: ''
+  },
+  rolePermissions: {
+    type: [String],
+    default: []
   }
 }, { timestamps: true });
 
-const User = mongoose.models.User || mongoose.model('User', userSchema); // prevent dublicate or overwrite 
-
+const User = mongoose.models.User || mongoose.model('User', userSchema);
 export default User;
