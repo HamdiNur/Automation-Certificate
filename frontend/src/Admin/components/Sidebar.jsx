@@ -12,7 +12,7 @@ function Sidebar() {
         <li><FaClipboardList /> <Link to="/requests">Clearances</Link></li>
         <li><FaCalendarAlt /> <Link to="/appointments">Appointments</Link></li>
         <li><FaUser /> <Link to="/users">Users</Link></li>
-        <li><FaCog /> <Link to="/settings">Settings</Link></li>
+        <li><FaCog /> <Link to="/profile">Profile</Link></li>
       </ul>
     </div>
   );
