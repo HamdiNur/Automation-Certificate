@@ -1,14 +1,29 @@
 // src/pages/Login.jsx
-import React from "react";
-import "./Login.css"; // We'll create this next
+import React, { useState } from "react";
+import "./Login.css";
 import { useNavigate } from "react-router-dom";
 
 function Login() {
   const navigate = useNavigate();
+  const [role, setRole] = useState("admin");
 
   const handleLogin = (e) => {
     e.preventDefault();
-    navigate("/dashboard"); // After login, go to dashboard
+
+    // Redirect based on selected role
+    if (role === "admin") {
+      navigate("/dashboard");
+    } else if (role === "faculty") {
+      navigate("/faculty/dashboard");
+    } else if (role === "lap") {
+      navigate("/lap/dashboard");
+    } else if (role === "library") {
+      navigate("/library/dashboard");
+    } else if (role === "finance") {
+      navigate("/finance/dashboard");
+    } else {
+      alert("Invalid role selected.");
+    }
   };
 
   return (
@@ -16,7 +31,7 @@ function Login() {
       <div className="login-container">
         <div className="left-side">
           <img
-            src="../images/login-background.jpg.jpg" // Or use your uploaded path
+            src="../images/login-background.jpg.jpg"
             alt="Background"
             className="background-image"
           />
@@ -35,9 +50,27 @@ function Login() {
           <form onSubmit={handleLogin} className="login-form">
             <h2>Welcome back!</h2>
             <p>Please sign in to continue</p>
+
             <input type="text" placeholder="Username" required />
             <input type="password" placeholder="Password" required />
+
+            <select
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+              required
+            >
+              <option value="admin">Admin</option>
+              <option value="faculty">Faculty</option>
+              <option value="lap">lap</option>
+              <option value="library">library</option>
+              <option value="finance">financce</option>
+
+
+
+            </select>
+
             <button type="submit">Sign In</button>
+
             <p className="copyright">
               © 2025 <strong>Jamhuriya Thesis System</strong>. Developed by{" "}
               <strong>Jamhuriya Technology Solutions</strong>.
