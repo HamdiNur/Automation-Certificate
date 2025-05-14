@@ -18,6 +18,9 @@ import LabProfile from "./Lap/pages/LabProfile";
 import LibraryDashboard from "./Library/pages/LibraryDashboard";
 import LibraryBooks from "./Library/pages/LibraryBooks";
 import LibraryProfile from "./Library/pages/LibraryProfile";
+import FinanceDashboard from "./Finance/pages/FinanceDashboard";
+import FinancePayments from "./Finance/pages/FinancePayments";
+import FinanceProfile from "./Finance/pages/FinanceProfile";
 function App() {
   return (
     <Router>
@@ -31,7 +34,6 @@ function App() {
         <Route path="/profile" element={<Profile />} />
         <Route path="/name-corrections" element={<NameCorrections />} />
 
-
         <Route path="/faculty/dashboard" element={<FacultyDashboard />} />
         <Route path="/faculty/requests" element={<FacultyRequests />} />
         <Route path="/faculty/profile" element={<FacultyProfile />} />
@@ -44,12 +46,9 @@ function App() {
         <Route path="library/books" element={<LibraryBooks/>}/>
         <Route path="library/profile" element={<LibraryProfile/>}/>
 
-
-
-
-
-
-
+        <Route path="/finance/dashboard" element={<FinanceDashboard />} />
+        <Route path="/finance/payments" element={<FinancePayments />} />
+        <Route path="/finance/profile" element={<FinanceProfile />} />
       </Routes>
     </Router>
   );
