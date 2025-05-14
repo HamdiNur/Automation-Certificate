@@ -15,8 +15,8 @@ function Login() {
       navigate("/dashboard");
     } else if (role === "faculty") {
       navigate("/faculty/dashboard");
-    } else if (role === "lap") {
-      navigate("/lap/dashboard");
+    } else if (role === "lab") {
+      navigate("/lab/dashboard");
     } else if (role === "library") {
       navigate("/library/dashboard");
     } else if (role === "finance") {
@@ -61,7 +61,7 @@ function Login() {
             >
               <option value="admin">Admin</option>
               <option value="faculty">Faculty</option>
-              <option value="lap">lap</option>
+              <option value="lab">lab</option>
               <option value="library">library</option>
               <option value="finance">financce</option>
 

@@ -11,7 +11,10 @@ import Profile from "./Admin/pages/Profile";
 import FacultyDashboard from "./facualty/pages/FacultyDashboar";
 import FacultyRequests from "./facualty/pages/FacultyRequests";
 import FacultyProfile from "./facualty/pages/FacultyProfile";
-
+import NameCorrections from "./Admin/pages/NameCorrections";
+import LabDashboard from "./Lap/pages/LabDashboard";
+import LabEquipment from "./Lap/pages/LabEquipment";
+import LabProfile from "./Lap/pages/LabProfile";
 function App() {
   return (
     <Router>
@@ -23,11 +26,19 @@ function App() {
         <Route path="/appointments" element={<Appointments />} />
         <Route path="/users" element={<Users />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/name-corrections" element={<NameCorrections />} />
 
 
         <Route path="/faculty/dashboard" element={<FacultyDashboard />} />
-<Route path="/faculty/requests" element={<FacultyRequests />} />
-<Route path="/faculty/profile" element={<FacultyProfile />} />
+        <Route path="/faculty/requests" element={<FacultyRequests />} />
+        <Route path="/faculty/profile" element={<FacultyProfile />} />
+
+        <Route path="lab/dashboard" element={<LabDashboard/>}/>
+        <Route path="lab/equipment" element={<LabEquipment/>}/>
+        <Route path="lab/profile" element={<LabProfile/>}/>
+
+
+
       </Routes>
     </Router>
   );

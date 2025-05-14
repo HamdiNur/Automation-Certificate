@@ -340,6 +340,34 @@
   margin-bottom: 10px;
 }
 
+.badge.approved {
+  background-color: #28a745;
+  color: white;
+  padding: 4px 10px;
+  border-radius: 20px;
+}
+
+.badge.rejected {
+  background-color: #dc3545;
+  color: white;
+  padding: 4px 10px;
+  border-radius: 20px;
+}
+
+.badge.pending {
+  background-color: #ffc107;
+  color: black;
+  padding: 4px 10px;
+  border-radius: 20px;
+}
+
+.modal textarea {
+  font-size: 15px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  resize: none;
+}
+
 
 
   
