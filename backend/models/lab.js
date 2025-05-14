@@ -1,6 +1,11 @@
 import mongoose from 'mongoose';
 const labSchema = new mongoose.Schema({
-    studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Student' },
+  members: [
+        {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'Student'
+        }
+      ],
     groupId: { type: mongoose.Schema.Types.ObjectId, ref: 'Group' },
     returnedItems: String,
     issues: String,

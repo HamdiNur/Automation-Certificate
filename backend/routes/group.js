@@ -1,16 +1,20 @@
+// routes/group.js
 import express from 'express';
-import {
-  createGroup,
-  getAllGroups,
-  getGroupById,
-  updateClearanceProgress
-} from '../controllers/groupController.js';
-
 const router = express.Router();
 
-router.post('/create', createGroup);
-router.get('/', getAllGroups);
-router.get('/:id', getGroupById);
+import {
+  getAllGroups,
+  getGroupById,
+  updateClearanceProgress,
+  getGroupByNumber,
+  getGroupsByClearanceStatus
+  
+} from '../controllers/groupController.js';
+
+router.get('/', getAllGroups);                 // List all groups with members
+router.get('/:id', getGroupById);             // Get one group by ID
 router.post('/update-clearance', updateClearanceProgress);
+router.get('/by-number/:groupNumber', getGroupByNumber);
+router.get('/status/:type/:status', getGroupsByClearanceStatus); 
 
 export default router;
