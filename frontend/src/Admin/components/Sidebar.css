@@ -1,0 +1,38 @@
+.sidebar-modern {
+  width: 220px;
+  height: 100vh;
+  background-color: #0d2d63;
+  color: white;
+  padding: 20px;
+  position: relative; /* not fixed */
+  flex-shrink: 0;
+}
+
+  
+  .sidebar-modern h2.logo {
+    font-size: 22px;
+    margin-bottom: 30px;
+    font-weight: bold;
+  }
+  
+  .sidebar-modern ul {
+    list-style: none;
+    padding: 0;
+  }
+  
+  .sidebar-modern li {
+    display: flex;
+    align-items: center;
+    margin: 20px 0;
+    gap: 10px;
+  }
+  
+  .sidebar-modern a {
+    color: white;
+    text-decoration: none;
+  }
+  
+  .sidebar-modern a:hover {
+    text-decoration: underline;
+  }
+  
