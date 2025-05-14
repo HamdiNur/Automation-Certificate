@@ -15,6 +15,9 @@ import NameCorrections from "./Admin/pages/NameCorrections";
 import LabDashboard from "./Lap/pages/LabDashboard";
 import LabEquipment from "./Lap/pages/LabEquipment";
 import LabProfile from "./Lap/pages/LabProfile";
+import LibraryDashboard from "./Library/pages/LibraryDashboard";
+import LibraryBooks from "./Library/pages/LibraryBooks";
+import LibraryProfile from "./Library/pages/LibraryProfile";
 function App() {
   return (
     <Router>
@@ -36,6 +39,14 @@ function App() {
         <Route path="lab/dashboard" element={<LabDashboard/>}/>
         <Route path="lab/equipment" element={<LabEquipment/>}/>
         <Route path="lab/profile" element={<LabProfile/>}/>
+
+        <Route path="library/dashboard" element={<LibraryDashboard/>}/>
+        <Route path="library/books" element={<LibraryBooks/>}/>
+        <Route path="library/profile" element={<LibraryProfile/>}/>
+
+
+
+
 
 
 
