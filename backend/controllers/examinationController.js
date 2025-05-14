@@ -1,6 +1,7 @@
 import Examination from '../models/examination.js';
 import Clearance from '../models/Clearance.js';
 import CourseRecord from '../models/course.js';
+import Student from '../models/Student.js';
 
 // 🔹 Get all pending examination records
 export const getPendingExamination = async (req, res) => {
@@ -12,7 +13,7 @@ export const getPendingExamination = async (req, res) => {
   }
 };
 
-// 🔹 Approve examination (after all requirements are met)
+// 🔹 Approve examination (final clearance logic)
 export const approveExamination = async (req, res) => {
   const { studentId, approvedBy } = req.body;
 
@@ -20,18 +21,34 @@ export const approveExamination = async (req, res) => {
     const exam = await Examination.findOne({ studentId });
     if (!exam) return res.status(404).json({ message: 'Examination record not found.' });
 
-    const courseRecord = await CourseRecord.findOne({ studentId });
-    const hasPassedAll = courseRecord && courseRecord.courses.every(c => c.passed);
+    // ✅ Check if student passed all courses
+    const courseRecords = await CourseRecord.find({ studentId });
+    const hasPassedAll = courseRecords.every(c => c.passed);
 
-    const { passportUploaded, otherDocsVerified } = exam.requiredDocs;
-
-    if (!hasPassedAll || !passportUploaded || !otherDocsVerified || !exam.canGraduate) {
-      return res.status(400).json({ message: 'Student does not meet final clearance requirements.' });
+    if (!hasPassedAll || !exam.canGraduate) {
+      return res.status(400).json({ message: 'Student has not met graduation criteria.' });
     }
 
+    // ✅ If name correction is requested, check required docs
+    const nameCorrectionRequested = !!exam.nameCorrectionDoc;
+    if (nameCorrectionRequested) {
+      const { passportUploaded, otherDocsVerified } = exam.requiredDocs;
+      if (!passportUploaded || !otherDocsVerified) {
+        return res.status(400).json({
+          message: 'Name correction requires valid passport and document verification.'
+        });
+      }
+    }
+
+    // ✅ Set appointment 8 days later
+    const now = new Date();
+    const autoAppointmentDate = new Date(now);
+    autoAppointmentDate.setDate(now.getDate() + 8);
+
     exam.status = 'Approved';
-    exam.clearedAt = new Date();
-    exam.approvedBy = approvedBy;
+    exam.clearedAt = now;
+    exam.appointmentDate = autoAppointmentDate;
+    exam.finalDecisionBy = approvedBy;
     await exam.save();
 
     await Clearance.updateOne(
@@ -39,15 +56,34 @@ export const approveExamination = async (req, res) => {
       {
         $set: {
           'examination.status': 'Approved',
-          'examination.clearedAt': new Date(),
+          'examination.clearedAt': now,
           finalStatus: 'Cleared'
         }
       }
     );
 
-    res.status(200).json({ message: 'Examination clearance approved.' });
+    res.status(200).json({
+      message: 'Examination clearance approved. Appointment scheduled automatically.',
+      appointmentDate: autoAppointmentDate
+    });
   } catch (err) {
     res.status(500).json({ message: 'Failed to approve examination.', error: err.message });
+  }
+};
+
+// 🔹 Confirm and update student name
+export const confirmStudentName = async (req, res) => {
+  const { studentId, newName } = req.body;
+
+  try {
+    await Student.findByIdAndUpdate(studentId, { fullName: newName });
+    await Examination.findOneAndUpdate(
+      { studentId },
+      { nameConfirmed: true }
+    );
+    res.status(200).json({ message: 'Name updated and confirmed.' });
+  } catch (err) {
+    res.status(500).json({ message: 'Name confirmation failed.', error: err.message });
   }
 };
 
@@ -75,7 +111,7 @@ export const rejectExamination = async (req, res) => {
   }
 };
 
-// 🔹 Upload final clearance certificate (PDF)
+// 🔹 Upload final clearance certificate
 export const uploadCertificate = async (req, res) => {
   const { studentId, confirmationPdfUrl } = req.body;
 
@@ -94,22 +130,29 @@ export const uploadCertificate = async (req, res) => {
 
 // 🔹 Schedule appointment for certificate collection
 export const scheduleAppointment = async (req, res) => {
-  const { studentId, appointmentDate } = req.body;
+  const { studentId, appointmentDate, reason } = req.body;
 
   try {
     const exam = await Examination.findOne({ studentId });
     if (!exam) return res.status(404).json({ message: 'Examination record not found.' });
 
     exam.appointmentDate = new Date(appointmentDate);
+    if (reason) {
+      exam.rescheduleReason = reason;
+    }
     await exam.save();
 
-    res.status(200).json({ message: 'Appointment scheduled.' });
+    res.status(200).json({
+      message: 'Appointment scheduled successfully.',
+      newDate: appointmentDate,
+      reason: reason || null
+    });
   } catch (err) {
     res.status(500).json({ message: 'Failed to schedule appointment.', error: err.message });
   }
 };
 
-// 🔹 Mark check-in when student arrives for certificate
+// 🔹 Mark check-in when student arrives
 export const markCheckIn = async (req, res) => {
   const { studentId } = req.body;
 
@@ -124,5 +167,17 @@ export const markCheckIn = async (req, res) => {
     res.status(200).json({ message: 'Check-in marked.' });
   } catch (err) {
     res.status(500).json({ message: 'Failed to mark check-in.', error: err.message });
+  }
+};
+
+// 🔹 Get failed courses (re-exam)
+export const getFailedCourses = async (req, res) => {
+  const { studentId } = req.params;
+
+  try {
+    const failed = await CourseRecord.find({ studentId, passed: false });
+    res.status(200).json(failed);
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to get re-exam courses', error: err.message });
   }
 };

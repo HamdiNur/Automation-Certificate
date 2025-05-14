@@ -2,6 +2,7 @@ import Faculty from '../models/faculty.js';
 import Clearance from '../models/Clearance.js';
 import Group from '../models/group.js';
 
+// 🔹 Get all pending faculty records
 export const getPendingFaculty = async (req, res) => {
   try {
     const pending = await Faculty.find({ status: 'Pending' }).populate('studentId groupId');
@@ -11,13 +12,14 @@ export const getPendingFaculty = async (req, res) => {
   }
 };
 
+// 🔹 Approve faculty clearance
 export const approveFaculty = async (req, res) => {
   const { studentId, groupId } = req.body;
   try {
     const faculty = await Faculty.findOne({ studentId });
     if (!faculty) return res.status(404).json({ message: 'Faculty record not found.' });
 
-    if (!faculty.printedThesisSubmitted || !faculty.signedFormSubmitted || !faculty.softCopyUrl) {
+    if (!faculty.printedThesisSubmitted || !faculty.signedFormSubmitted || !faculty.softCopyReceived) {
       return res.status(400).json({ message: 'Missing required documents.' });
     }
 
@@ -41,6 +43,7 @@ export const approveFaculty = async (req, res) => {
   }
 };
 
+// 🔹 Reject faculty clearance
 export const rejectFaculty = async (req, res) => {
   const { studentId, facultyRemarks } = req.body;
   try {

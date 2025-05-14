@@ -13,11 +13,14 @@ const examinationSchema = new mongoose.Schema({
   },
   status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
   remarks: String,
+  rescheduleReason: { type: String },
+
   finalDecisionBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   clearedAt: Date,
   checkedIn: Boolean,
   attendedAt: Date,
   updatedAt: { type: Date, default: Date.now }
+
 });
 
 export default mongoose.model('examination', examinationSchema);
