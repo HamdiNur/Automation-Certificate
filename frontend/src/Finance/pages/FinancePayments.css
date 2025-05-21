@@ -1,0 +1,104 @@
+.search-form {
+  margin: 20px 0;
+  display: flex;
+  gap: 10px;
+}
+
+.search-form input {
+  padding: 10px;
+  font-size: 16px;
+  border: 1px solid #aaa;
+  border-radius: 6px;
+  width: 300px;
+}
+
+.search-form button {
+  padding: 10px 20px;
+  background-color: #003366;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.error-message {
+  color: red;
+  margin-top: 10px;
+}
+
+.finance-summary {
+  margin-top: 30px;
+}
+
+.finance-summary ul {
+  list-style: none;
+  padding: 0;
+  margin: 10px 0;
+}
+
+.finance-summary li {
+  margin-bottom: 4px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+  font-size: 14px;
+}
+
+table th,
+table td {
+  border: 1px solid #ccc;
+  padding: 8px;
+  text-align: left;
+}
+
+table th {
+  background-color: #f0f0f0;
+}
+.sidebar {
+  width: 250px;
+  background-color: #144BA6; /* Match your primary blue */
+  color: #fff;
+  height: 100vh; /* Full vertical height */
+  padding: 20px;
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+.dashboard-wrapper {
+  display: flex;
+  height: 100vh; /* Full viewport height */
+  align-items: stretch;
+  overflow: hidden;
+}
+
+.sidebar {
+  width: 250px;
+  background-color: #144BA6;
+  color: white;
+  height: 100vh; /* Full height */
+  position: fixed;
+  left: 0;
+  top: 0;
+  bottom: 0;
+}
+
+.dashboard-wrapper {
+  display: flex;
+  min-height: 100vh;
+}
+
+.sidebar {
+  width: 250px;
+  background-color: #144BA6;
+  color: white;
+  flex-shrink: 0;
+}
+
+.dashboard-main {
+  flex: 1;
+  padding: 30px;
+  background-color: #f5f7fa;
+  overflow-x: auto;
+}

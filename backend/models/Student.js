@@ -1,29 +1,27 @@
 import mongoose from 'mongoose';
 
 const studentSchema = new mongoose.Schema({
-  fullName: {
-    type: String,
-    required: [true, 'Full name is required']
-  },
-  email: {
-    type: String,
-    required: [true, 'Email is required'],
-    unique: true,
-    lowercase: true
-  },
+  // 🎓 Identity & Academic Info
   studentId: {
     type: String,
     required: true,
     unique: true
   },
-  rawPassword: {
+  fullName: {
     type: String,
-    required: true
+    required: [true, 'Full name is required']
   },
-  hashedPassword: {
+  motherName: {
     type: String,
-    required: true
+    required: [true, 'Mother’s name is required']
   },
+  gender: {
+    type: String,
+    enum: ['male', 'female'],
+    required: [true, 'Gender is required']
+  },
+
+  // 📚 Academic Background
   program: {
     type: String,
     required: true
@@ -32,24 +30,6 @@ const studentSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  groupId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Group',
-    required: false
-  },
-  phone: {
-    type: String,
-    required: true
-  },
-  nameVerified: {
-    type: Boolean,
-    default: false
-  },
-  correctionUploadUrl: {
-    type: String,
-    default: ''
-  }
-  ,
   yearOfAdmission: {
     type: Number,
     required: true
@@ -62,18 +42,56 @@ const studentSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
-  profilePicture: {
+  groupId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Group',
+    required: false
+  },
+
+  // 🔒 Authentication
+  email: {
+    type: String,
+    required: [true, 'Email is required'],
+    unique: true,
+    lowercase: true
+  },
+  phone: {
+    type: String,
+    required: true
+  },
+  rawPassword: {
+    type: String,
+    required: true
+  },
+  hashedPassword: {
+    type: String,
+    required: true
+  },
+nameCorrectionRequested: { type: Boolean, default: false },  // ✅ New
+
+  // ✅ Verification & Status
+  nameVerified: {
+    type: Boolean,
+    default: false
+  },
+  correctionUploadUrl: {
     type: String,
     default: ''
   },
   clearanceStatus: {
     type: String,
-    enum: ['pending', 'cleared', 'not_cleared'],
+    enum: ['pending', 'Approved', 'Rejected'],
     default: 'pending'
   },
   isCleared: {
     type: Boolean,
     default: false
+  },
+
+  // 📷 Profile
+  profilePicture: {
+    type: String,
+    default: ''
   }
 }, { timestamps: true });
 

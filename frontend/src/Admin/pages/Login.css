@@ -1,0 +1,110 @@
+/* src/pages/Login.css */
+.login-page {
+    height: 100vh;
+    width: 100%;
+    overflow: hidden;
+  }
+  
+  .login-container {
+    display: flex;
+    height: 100%;
+  }
+  
+  .left-side {
+    position: relative;
+    width: 50%;
+  }
+  
+  .background-image {
+    height: 100%;
+    width: 100%;
+    object-fit: cover;
+  }
+  
+  .overlay-content {
+    position: absolute;
+    top: 20%;
+    left: 10%;
+    color: white;
+    max-width: 400px;
+  }
+  
+  .overlay-content h1 {
+    font-size: 36px;
+    font-weight: bold;
+    margin-bottom: 0;
+  }
+  
+  .overlay-content h2 {
+    font-size: 24px;
+    margin-top: 5px;
+    margin-bottom: 15px;
+  }
+  
+  .overlay-content p {
+    font-size: 16px;
+    line-height: 1.5;
+  }
+  
+  .right-side {
+    width: 50%;
+    background-color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  
+  .login-form {
+    width: 80%;
+    max-width: 400px;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .login-form h2 {
+    margin-bottom: 10px;
+    color: #003366;
+  }
+  
+  .login-form p {
+    margin-bottom: 20px;
+    color: gray;
+  }
+  
+ .login-form input {
+  padding: 12px 20px;
+  margin-bottom: 15px;
+  font-size: 16px;
+  border: 1px solid lightgray;
+  border-radius: 50px; /* 👈 Rounded pill shape */
+}
+.login-form button {
+  padding: 12px;
+  font-size: 16px;
+  background-color: #003366;
+  color: white;
+  border: none;
+  border-radius: 50px; /* 👈 Rounded button */
+  cursor: pointer;
+}
+
+  
+  .login-form button:hover {
+    background-color: #002244;
+  }
+  
+  .copyright {
+    font-size: 12px;
+    margin-top: 20px;
+    text-align: center;
+    color: gray;
+  }
+  
+  .login-form select {
+    margin-bottom: 15px;
+    padding: 10px;
+    font-size: 16px;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+  }
+  
