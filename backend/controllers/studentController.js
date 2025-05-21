@@ -4,21 +4,14 @@ import jwt from 'jsonwebtoken';
 import Student from '../models/Student.js';
 import Lab from '../models/lab.js';
 import bcrypt from 'bcryptjs';
-import Group from '../models/group.js'; // ✅ Add this
+import Group from '../models/group.js';
 import CourseRecord from '../models/course.js';
 import Clearance from '../models/Clearance.js';
-
 import Finance from '../models/finance.js';
 
 import { generateStudentUserId } from '../utils/idGenerator.js';
 import { getFacultyByProgram, programDurations } from '../utils/programInfo.js';
 
-<<<<<<< HEAD
-// 🔹 Register Student
-export const registerStudent = async (req, res) => {
-  try {
-    const { fullName, email, program, yearOfAdmission, phone } = req.body;
-=======
 // ✅ REGISTER STUDENT
 export const registerStudent = async (req, res) => {
   try {
@@ -31,7 +24,6 @@ export const registerStudent = async (req, res) => {
       motherName,
       gender
     } = req.body;
->>>>>>> master
 
     const rawPassword = Math.floor(100000 + Math.random() * 900000).toString();
     const hashedPassword = await bcrypt.hash(rawPassword, 10);
@@ -52,14 +44,8 @@ export const registerStudent = async (req, res) => {
       rawPassword,
       hashedPassword,
       phone,
-<<<<<<< HEAD
-      hashedPassword,
-      clearanceStatus: "Pending",
-      isCleared: false
-=======
       motherName,
       gender
->>>>>>> master
     });
 
     res.status(201).json({
@@ -69,24 +55,15 @@ export const registerStudent = async (req, res) => {
         fullName: newStudent.fullName,
         gender: newStudent.gender,
         motherName: newStudent.motherName,
-
         program: newStudent.program,
         faculty: newStudent.faculty,
         yearOfAdmission: newStudent.yearOfAdmission,
         yearOfGraduation: newStudent.yearOfGraduation,
-<<<<<<< HEAD
-        phone: newStudent.phone,
-        profilePicture: newStudent.profilePicture,
-        clearanceStatus: newStudent.clearanceStatus
-=======
-
         email: newStudent.email,
         phone: newStudent.phone,
-        password: newStudent.rawPassword, // only return in registration
-
+        password: newStudent.rawPassword,
         clearanceStatus: newStudent.clearanceStatus,
         profilePicture: newStudent.profilePicture
->>>>>>> master
       }
     });
   } catch (error) {
@@ -94,11 +71,7 @@ export const registerStudent = async (req, res) => {
   }
 };
 
-<<<<<<< HEAD
-// 🔹 Login Student
-=======
 // ✅ LOGIN STUDENT
->>>>>>> master
 export const loginStudent = async (req, res) => {
   const { studentId, password } = req.body;
 
@@ -133,15 +106,12 @@ export const loginStudent = async (req, res) => {
         fullName: student.fullName,
         gender: student.gender,
         motherName: student.motherName,
-
         program: student.program,
         faculty: student.faculty,
         yearOfAdmission: student.yearOfAdmission,
         yearOfGraduation: student.yearOfGraduation,
-
         email: student.email,
         phone: student.phone,
-
         clearanceStatus: student.clearanceStatus,
         profilePicture: student.profilePicture
       }
@@ -153,71 +123,7 @@ export const loginStudent = async (req, res) => {
   }
 };
 
-<<<<<<< HEAD
-// 🔹 Get All Students with Populated Group
-import Library from "../models/library.js"; // add this at the top
-
-export const getAllStudents = async (req, res) => {
-  try {
-    const students = await Student.find().populate("groupId", "groupNumber");
-
-    // 🔁 For each student, fetch clearance status from Library model
-    const results = await Promise.all(
-      students.map(async (student) => {
-        const libraryRecord = await Library.findOne({ members: student._id });
-        const clearanceStatus = libraryRecord?.status || "Pending";
-
-        return {
-          ...student.toObject(),
-          clearanceStatus,
-        };
-      })
-    );
-
-    res.status(200).json(results);
-  } catch (err) {
-    res.status(500).json({ message: "Failed to fetch students", error: err.message });
-  }
-};
-// controllers/studentController.js
-export const getStudentsWithLabStatus = async (req, res) => {
-  try {
-    const students = await Student.find().populate("groupId", "groupNumber");
-    const labs = await Lab.find().lean();
-
-    const result = students.map(student => {
-      let labStatus = "Pending";
-
-      const lab = labs.find(l => {
-        const sameGroup =
-          l.groupId?.toString() === student.groupId?.toString() ||
-          l.groupId?.toString() === student.groupId?._id?.toString();
-
-        const isMember = l.members?.some(m => m.toString() === student._id.toString());
-        return sameGroup && isMember;
-      });
-
-      if (lab) {
-        labStatus = lab.status;
-      }
-
-      return {
-        _id: student._id,
-        fullName: student.fullName,
-        studentId: student.studentId,
-        program: student.program,
-        groupNumber: student.groupId?.groupNumber || "—",
-        labStatus
-      };
-    });
-
-    return res.status(200).json(result);
-  } catch (error) {
-    return res.status(500).json({
-      message: "Failed to fetch lab status",
-      error: error.message
-    });
-=======
+// ✅ GET ALL STUDENTS
 export const getAllStudents = async (req, res) => {
   try {
     const students = await Student.find();
@@ -227,6 +133,7 @@ export const getAllStudents = async (req, res) => {
   }
 };
 
+// ✅ GET STUDENT BY ID
 export const getStudentById = async (req, res) => {
   try {
     const student = await Student.findById(req.params.id);
@@ -237,8 +144,7 @@ export const getStudentById = async (req, res) => {
   }
 };
 
-
-
+// ✅ ELIGIBLE FOR NAME CORRECTION
 export const getEligibleForNameCorrection = async (req, res) => {
   try {
     const eligibleStudents = [];
@@ -265,7 +171,6 @@ export const getEligibleForNameCorrection = async (req, res) => {
             groupNumber: group.groupNumber
           });
 
-          // Optionally mark in DB
           await Student.updateOne({ _id: student._id }, { $set: { nameCorrectionEligible: true } });
         }
       }
@@ -277,31 +182,7 @@ export const getEligibleForNameCorrection = async (req, res) => {
   }
 };
 
-// export const getEligibleForNameCorrection = async (req, res) => {
-//   try {
-//     const eligibleStudents = await Student.find({ nameCorrectionEligible: true })
-//       .select('studentId fullName email groupId')
-//       .populate('groupId', 'groupNumber')
-//       .lean();
-
-//     const formatted = eligibleStudents.map(st => ({
-//       studentId: st.studentId,
-//       fullName: st.fullName,
-//       email: st.email,
-//       groupNumber: st.groupId?.groupNumber || 'N/A'
-//     }));
-
-//     res.status(200).json({
-//       count: formatted.length,
-//       eligibleStudents: formatted
-//     });
-//   } catch (err) {
-//     res.status(500).json({ message: 'Failed to fetch eligible students', error: err.message });
-//   }
-// };
-
-
-// ✅ Toggle Name Correction Request (set by student)
+// ✅ Toggle Name Correction Request
 export const markNameCorrectionRequest = async (req, res) => {
   const { studentId, requested } = req.body;
 
@@ -309,7 +190,6 @@ export const markNameCorrectionRequest = async (req, res) => {
     const student = await Student.findById(studentId);
     if (!student) return res.status(404).json({ message: 'Student not found' });
 
-    // ✅ Check if Faculty, Library, Lab are approved
     const clearance = await Clearance.findOne({ studentId });
     if (
       !clearance ||
@@ -320,7 +200,6 @@ export const markNameCorrectionRequest = async (req, res) => {
       return res.status(403).json({ message: 'Clearance not fully approved' });
     }
 
-    // ✅ Check graduation fee status
     const gradFee = await Finance.findOne({
       studentId,
       semester: 8,
@@ -333,13 +212,11 @@ export const markNameCorrectionRequest = async (req, res) => {
       return res.status(403).json({ message: 'Graduation fee not approved' });
     }
 
-    // ✅ Check if all courses are passed
     const hasFailed = await CourseRecord.exists({ studentId, passed: false });
     if (hasFailed) {
       return res.status(403).json({ message: 'Student has failed courses' });
     }
 
-    // ✅ If all good, update student record
     await Student.findByIdAndUpdate(studentId, {
       nameCorrectionRequested: requested,
       nameCorrectionEligible: true
@@ -352,7 +229,7 @@ export const markNameCorrectionRequest = async (req, res) => {
   }
 };
 
-// Upload file (passport/school cert) for name correction
+// ✅ Upload Correction File
 export const uploadCorrectionFile = async (req, res) => {
   const { studentId } = req.body;
   const file = req.file;
@@ -368,6 +245,5 @@ export const uploadCorrectionFile = async (req, res) => {
     res.status(200).json({ message: 'Correction document uploaded successfully', path: file.path });
   } catch (err) {
     res.status(500).json({ message: 'Failed to upload correction doc', error: err.message });
->>>>>>> master
   }
 };
