@@ -1,7 +1,10 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
+<<<<<<< HEAD
 import Student from '../models/Student.js';
+=======
+>>>>>>> master
 import mongoose from 'mongoose';
 import Library from '../models/library.js';
 import Group from '../models/group.js';
