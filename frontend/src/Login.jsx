@@ -1,9 +1,16 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+<<<<<<< HEAD
 import logo from "../assets/logo.png"; // Replace with your actual logo path
 
 const Login = () => {
   const [form, setForm] = useState({ email: "", password: "", role: "admin" });
+=======
+import logo from "../assets/logo.png";
+
+const Login = () => {
+  const [form, setForm] = useState({ userId: "", password: "" });
+>>>>>>> master
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
@@ -11,6 +18,7 @@ const Login = () => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
+<<<<<<< HEAD
   const handleSubmit = (e) => {
     e.preventDefault();
     setError("");
@@ -35,6 +43,49 @@ const Login = () => {
       navigate("/examination");
     } else {
       setError("Unknown role selected");
+=======
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+
+    try {
+      const res = await fetch("http://localhost:5000/api/users/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Login failed");
+
+      const { userId, role } = data.user;
+
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("role", role);
+      localStorage.setItem("userId", userId);
+
+      const prefix = userId.substring(0, 2).toUpperCase();
+      const routeMap = {
+        AD: "admin",
+        FI: "finance",
+        LI: "library",
+        LB: "lab",
+        EX: "exam_office",
+        FA: "faculty",
+        ST: "student",
+        NU: "student"
+      };
+
+      const dashboard = routeMap[prefix];
+      if (dashboard) {
+        navigate(`/${dashboard}`);
+      } else {
+        setError("Unknown user ID prefix. Cannot determine role.");
+      }
+
+    } catch (err) {
+      setError(err.message);
+>>>>>>> master
     }
   };
 
@@ -42,7 +93,10 @@ const Login = () => {
     <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4">
       <div className="bg-white shadow-xl rounded-xl p-8 w-full max-w-sm text-center">
         <img src={logo} alt="System Logo" className="w-24 mx-auto mb-4" />
+<<<<<<< HEAD
 
+=======
+>>>>>>> master
         <h2 className="text-lg font-bold text-indigo-900">UNIVERSITY CERTIFICATE</h2>
         <p className="text-lg font-bold text-indigo-900 mb-6">CLEARANCE SYSTEM</p>
 
@@ -50,6 +104,7 @@ const Login = () => {
 
         <form onSubmit={handleSubmit} className="text-left space-y-4">
           <div>
+<<<<<<< HEAD
             <label className="text-sm font-medium text-gray-700">Role</label>
             <select
               name="role"
@@ -74,6 +129,15 @@ const Login = () => {
               value={form.email}
               onChange={handleChange}
               placeholder="Email address"
+=======
+            <label className="text-sm font-medium text-gray-700">User ID</label>
+            <input
+              name="userId"
+              type="text"
+              value={form.userId}
+              onChange={handleChange}
+              placeholder="User ID"
+>>>>>>> master
               required
               className="w-full mt-1 p-2 border border-gray-300 rounded-md"
             />

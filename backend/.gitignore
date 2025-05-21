@@ -1,3 +1,7 @@
+<<<<<<< HEAD
 .env
 /node_modules/
 
+=======
+.envgit commit -m "Add ID generator and program info utilities"
+>>>>>>> master

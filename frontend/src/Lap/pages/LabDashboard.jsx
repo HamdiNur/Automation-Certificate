@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import React, { useEffect, useState, useCallback } from "react";
 import axios from "../../api/axiosInstance";
 import LabSidebar from "../components/LabSidebar"; // ✅ Lab sidebar
@@ -66,10 +67,17 @@ function LabDashboard() {
     }
   };
 
+=======
+import React from "react";
+import LabSidebar from "../components/LabSidebar";
+import "./style/style.css"
+function LabDashboard() {
+>>>>>>> master
   return (
     <div className="dashboard-wrapper">
       <LabSidebar />
       <div className="dashboard-main">
+<<<<<<< HEAD
         <header className="dashboard-header">
           <h2>🔬 Lab Dashboard</h2>
           <div className="staff-info">
@@ -203,6 +211,18 @@ function LabDashboard() {
               )}
             </tbody>
           </table>
+=======
+        <h2>Lab Dashboard</h2>
+        <div className="faculty-widgets">
+          <div className="widget-card">
+            <h3>Returned Equipment</h3>
+            <p>20</p>
+          </div>
+          <div className="widget-card">
+            <h3>Not Returned</h3>
+            <p>5</p>
+          </div>
+>>>>>>> master
         </div>
       </div>
     </div>

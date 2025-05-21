@@ -1,7 +1,35 @@
+<<<<<<< HEAD
 import React from "react";
 import FacultySidebar from "../components/FacultySidebar";
 import "./styling/style.css"
 function FacultyDashboard() {
+=======
+import React, { useEffect, useState } from "react";
+import FacultySidebar from "../components/FacultySidebar";
+import axios from "axios";
+import "./styling/style.css";
+
+function FacultyDashboard() {
+  const [counts, setCounts] = useState({
+    pending: 0,
+    approved: 0,
+    rejected: 0,
+  });
+
+  useEffect(() => {
+    const fetchCounts = async () => {
+      try {
+        const res = await axios.get("http://localhost:5000/api/groups/status-count");
+        setCounts(res.data);
+      } catch (err) {
+        console.error("❌ Error fetching dashboard counts:", err.message);
+      }
+    };
+
+    fetchCounts();
+  }, []); // Only fetch once on load (optional: use a signal to refresh later)
+
+>>>>>>> master
   return (
     <div className="dashboard-wrapper">
       <FacultySidebar />
@@ -11,6 +39,7 @@ function FacultyDashboard() {
         <div className="faculty-widgets">
           <div className="widget-card">
             <h3>Pending Requests</h3>
+<<<<<<< HEAD
             <p>3</p>
           </div>
           <div className="widget-card">
@@ -20,6 +49,17 @@ function FacultyDashboard() {
           <div className="widget-card">
             <h3>Rejected</h3>
             <p>1</p>
+=======
+            <p className="pending">{counts.pending}</p>
+          </div>
+          <div className="widget-card">
+            <h3>Approved</h3>
+            <p className="approved">{counts.approved}</p>
+          </div>
+          <div className="widget-card">
+            <h3>Rejected</h3>
+            <p className="rejected">{counts.rejected}</p>
+>>>>>>> master
           </div>
         </div>
       </div>

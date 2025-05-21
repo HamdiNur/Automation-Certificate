@@ -11,15 +11,21 @@ const userSchema = new mongoose.Schema({
     unique: true,
     lowercase: true
   },
+  username: {
+    type: String,
+    unique: true,
+    sparse: true, // Allows null values, only enforces unique if value is provided
+    lowercase: true
+  },
   password: {
     type: String,
-    required: [true, 'Password is require'],
+    required: [true, 'Password is required'],
     minlength: 6
   },
   rawPassword: {
     type: String,
-    select: false // prevents accidental exposure
-  },  
+    select: false
+  },
   role: {
     type: String,
     enum: ['admin', 'student', 'staff', 'finance', 'library', 'faculty', 'exam_office', 'lab'],
@@ -30,6 +36,15 @@ const userSchema = new mongoose.Schema({
     required: true,
     unique: true
   },
+  department: {
+    type: String // For staff
+  },
+
+  // ✅ New Field
+  yearOfEmployment: {
+    type: Number // e.g., 2023
+  },
+
   isActive: {
     type: Boolean,
     default: true

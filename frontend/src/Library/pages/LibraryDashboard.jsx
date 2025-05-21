@@ -1,9 +1,14 @@
+<<<<<<< HEAD
 import React, { useEffect, useState, useCallback } from "react";
 import axios from "../../api/axiosInstance";
+=======
+import React from "react";
+>>>>>>> master
 import LibrarySidebar from "../components/LibrarySidebar";
 import "./styles/style.css";
 
 function LibraryDashboard() {
+<<<<<<< HEAD
   const [stats, setStats] = useState({ approved: 0, pending: 0, rejected: 0 });
   const [pending, setPending] = useState([]);
   const [search, setSearch] = useState("");
@@ -71,10 +76,13 @@ function LibraryDashboard() {
     }
   };
 
+=======
+>>>>>>> master
   return (
     <div className="dashboard-wrapper">
       <LibrarySidebar />
       <div className="dashboard-main">
+<<<<<<< HEAD
         <header className="dashboard-header">
           <h2>📚 Library Dashboard</h2>
           <div className="staff-info">
@@ -209,6 +217,18 @@ function LibraryDashboard() {
               )}
             </tbody>
           </table>
+=======
+        <h2>Library Dashboard</h2>
+        <div className="faculty-widgets">
+          <div className="widget-card">
+            <h3>Books Received</h3>
+            <p>28</p>
+          </div>
+          <div className="widget-card">
+            <h3>Pending Submissions</h3>
+            <p>4</p>
+          </div>
+>>>>>>> master
         </div>
       </div>
     </div>

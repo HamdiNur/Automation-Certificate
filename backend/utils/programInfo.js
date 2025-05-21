@@ -39,7 +39,7 @@ export const programDurations = {
   "BSc. in Public Administration": 4,
 
   // ✅ IT Programs
-  "Bachelor of Science in Computer Applications": 5,
+  "Bachelor of Science in Computer Applications": 4,
 };
 
   

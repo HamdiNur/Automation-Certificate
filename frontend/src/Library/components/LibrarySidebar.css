@@ -35,6 +35,7 @@
     .sidebar-modern a:hover {
       text-decoration: underline;
     }
+<<<<<<< HEAD
     
     .sidebar-modern ul li a {
   display: flex;
@@ -55,3 +56,6 @@
   background-color: #2563eb;
   color: #fff;
 }
+=======
+    
+>>>>>>> master

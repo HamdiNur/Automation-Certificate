@@ -15,13 +15,20 @@ const groupSchema = new mongoose.Schema({
   phaseOneCleared: Boolean,
   overallStatus: {
     type: String,
+<<<<<<< HEAD
     enum: ['Pending', 'In Progress', 'approved', 'Rejected'],
+=======
+    enum: ['Pending', 'In Progress', 'Approved', 'Rejected'],
+>>>>>>> master
     default: 'Pending'
   },
   clearanceProgress: {
-    faculty: { status: { type: String, default: 'Pending' }, clearedBy: String, date: Date },
+    faculty: { status: { type: String, default: 'Pending' }, clearedBy: String, date: Date ,
+    facultyRemarks: String, 
+  },
     library: { status: { type: String, default: 'Pending' }, clearedBy: String, date: Date },
-    lab: { status: { type: String, default: 'Pending' }, clearedBy: String, date: Date }
+    lab: { status: { type: String, default: 'Pending' }, clearedBy: String, date: Date },
+   
   },
   clearedAt: Date
 }, { timestamps: true });

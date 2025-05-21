@@ -1,6 +1,8 @@
 // ✅ backend/controllers/groupController.js — Full group controller
 
 import Group from '../models/group.js';
+import Faculty from '../models/faculty.js';
+
 import Student from '../models/Student.js';
 // 🔹 Get all groups with member names, student IDs, and emails
 export const getAllGroups = async (req, res) => {
@@ -92,5 +94,61 @@ export const getGroupsByClearanceStatus = async (req, res) => {
     res.status(200).json(groups);
   } catch (err) {
     res.status(500).json({ error: 'Failed to filter groups', message: err.message });
+  }
+};
+export const getGroupStatusCount = async (req, res) => {
+  try {
+    const pending = await Group.countDocuments({ "clearanceProgress.faculty.status": "Pending" });
+    const approved = await Group.countDocuments({ "clearanceProgress.faculty.status": "Approved" }); // ✅ fixed
+    const rejected = await Group.countDocuments({ "clearanceProgress.faculty.status": "Rejected" });
+
+    res.status(200).json({ pending, approved, rejected });
+  } catch (err) {
+    res.status(500).json({ message: "Failed to fetch status count", error: err.message });
+  }
+};
+
+
+export const updateClearanceStatus = async (req, res) => {
+  const { groupId, type, status, facultyRemarks } = req.body;
+
+  try {
+    const group = await Group.findById(groupId);
+    if (!group) return res.status(404).json({ message: "Group not found." });
+
+    group.clearanceProgress[type].status = status;
+    group.clearanceProgress[type].date = new Date();
+
+    if (status === "Rejected" && type === "faculty") {
+      group.clearanceProgress[type].facultyRemarks = facultyRemarks || "No reason provided";
+    }
+
+    await group.save();
+
+    if (type === "faculty") {
+      await Faculty.updateMany(
+        { groupId },
+        {
+          $set: {
+            status,
+            updatedAt: new Date(),
+            ...(status === "Rejected" && {
+              facultyRemarks: facultyRemarks || "No reason provided",
+              rejectionReason: facultyRemarks || "No reason provided",
+            }),
+            ...(status === "Approved" && {
+              facultyRemarks: '',
+              rejectionReason: '',
+              clearedAt: new Date(),
+            }),
+          },
+        }
+      );
+    }
+
+    return res.status(200).json({ message: `Clearance ${status}` });
+  } catch (err) {
+    console.error("❌ Clearance update error:", err.message);
+    res.status(500).json({ message: "Server error", error: err.message });
   }
 };
