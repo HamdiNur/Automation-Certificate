@@ -3,7 +3,9 @@ import {
   createCourseRecords,
   updateCourseStatus,
   getStudentCourses,
-  checkGraduationEligibility
+  checkEligibility,
+  getAllStudentCourses,
+  getAllPassedStudents
 } from '../controllers/courseController.js';
 
 const router = express.Router();
@@ -18,6 +20,10 @@ router.put('/update', updateCourseStatus);
 router.get('/student/:studentId', getStudentCourses);
 
 // 🔹 Check if student is eligible to graduate (passed all courses)
-router.get('/check/:studentId', checkGraduationEligibility);
+router.get('/check/:idOrCode', checkEligibility);
+router.get('/passed/all', getAllPassedStudents);
 
+
+// ✅ New route to fetch all students' courses
+router.get('/all', getAllStudentCourses);
 export default router;

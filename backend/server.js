@@ -1,9 +1,27 @@
-import dotenv from 'dotenv';
+// server.js
 import express from 'express';
+import dotenv from 'dotenv';
 import cors from 'cors';
 import { connectDB } from './config/db.js';
 
-// Import Routes
+// Load environment variables
+dotenv.config();
+
+// Initialize App
+const app = express();
+const port = process.env.PORT || 5000;
+
+// Connect to MongoDB
+connectDB();
+
+// Middleware
+app.use(cors({
+  origin: 'http://localhost:3000', // 🔁 React frontend origin
+  credentials: true
+}));
+app.use(express.json()); // Parse JSON request bodies
+
+// Routes
 import userRouter from './routes/userRoute.js';
 import studentRoutes from './routes/studentRoutes.js';
 import facultyRoutes from './routes/faculty.js';
@@ -17,20 +35,7 @@ import notificationRoutes from './routes/notification.js';
 import clearanceRoutes from './routes/clearance.js';
 import courseRoutes from './routes/course.js';
 
-dotenv.config();
-
-// Initialize App
-const app = express();
-const port = process.env.PORT || 5000;
-
-// Middleware
-app.use(cors());
-app.use(express.json());
-
-// DB Connection
-connectDB();
-
-// API Routes
+// Route Registration
 app.use('/api/users', userRouter);
 app.use('/api/students', studentRoutes);
 app.use('/api/faculty', facultyRoutes);
@@ -44,7 +49,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/clearance', clearanceRoutes);
 app.use('/api/courses', courseRoutes);
 
-// Default Route
+// Test Route
 app.get('/', (req, res) => {
   res.send('✅ API is working.');
 });

@@ -62,7 +62,8 @@
   }
   
   .login-form h2 {
-    margin-bottom: 5px;
+    margin-bottom: 10px;
+    color: #003366;
   }
   
   .login-form p {
@@ -70,23 +71,23 @@
     color: gray;
   }
   
-  .login-form input {
-    padding: 10px;
-    margin-bottom: 15px;
-    font-size: 16px;
-    border: 1px solid lightgray;
-    border-radius: 5px;
-  }
-  
-  .login-form button {
-    padding: 10px;
-    font-size: 16px;
-    background-color: #003366;
-    color: white;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-  }
+ .login-form input {
+  padding: 12px 20px;
+  margin-bottom: 15px;
+  font-size: 16px;
+  border: 1px solid lightgray;
+  border-radius: 50px; /* 👈 Rounded pill shape */
+}
+.login-form button {
+  padding: 12px;
+  font-size: 16px;
+  background-color: #003366;
+  color: white;
+  border: none;
+  border-radius: 50px; /* 👈 Rounded button */
+  cursor: pointer;
+}
+
   
   .login-form button:hover {
     background-color: #002244;

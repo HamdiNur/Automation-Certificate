@@ -6,11 +6,15 @@ const facultySchema = new mongoose.Schema({
   thesisTitle: String,
   printedThesisSubmitted: { type: Boolean, default: false },
   signedFormSubmitted: { type: Boolean, default: false },
-  softCopyReceived: { type: Boolean, default: false }, // ✅ Updated field
+  softCopyReceived: { type: Boolean, default: false },
   facultyRemarks: String,
+
+  // ✅ NEW FIELD
+  rejectionReason: { type: String, default: "" },
+
   status: { type: String, enum: ['Pending', 'Approved', 'Rejected'], default: 'Pending' },
   clearedAt: Date,
   updatedAt: { type: Date, default: Date.now }
 });
 
-export default mongoose.model('faculty', facultySchema);
+export default mongoose.model('Faculty', facultySchema);

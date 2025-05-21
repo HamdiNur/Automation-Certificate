@@ -21,6 +21,8 @@ import LibraryProfile from "./Library/pages/LibraryProfile";
 import FinanceDashboard from "./Finance/pages/FinanceDashboard";
 import FinancePayments from "./Finance/pages/FinancePayments";
 import FinanceProfile from "./Finance/pages/FinanceProfile";
+import PendingApprovals from "./Finance/pages/PendingApprovals";
+import GraduationPaid from "./Finance/pages/GraduationPaid";
 function App() {
   return (
     <Router>
@@ -48,6 +50,9 @@ function App() {
 
         <Route path="/finance/dashboard" element={<FinanceDashboard />} />
         <Route path="/finance/payments" element={<FinancePayments />} />
+        <Route path="/finance/pending" element={<PendingApprovals />} />
+        <Route path="/finance/graduation-paid" element={<GraduationPaid />} />
+
         <Route path="/finance/profile" element={<FinanceProfile />} />
       </Routes>
     </Router>

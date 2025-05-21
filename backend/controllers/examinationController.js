@@ -181,3 +181,111 @@ export const getFailedCourses = async (req, res) => {
     res.status(500).json({ message: 'Failed to get re-exam courses', error: err.message });
   }
 };
+
+/// 🆕 Student requests name correction
+export const requestNameCorrection = async (req, res) => {
+  const { studentId } = req.body;
+
+  try {
+    const exam = await Examination.findOne({ studentId });
+    if (!exam) return res.status(404).json({ message: 'Examination record not found' });
+
+    exam.nameCorrectionDoc = 'pending'; // temporary placeholder
+    await exam.save();
+
+    res.status(200).json({ message: 'Name correction request recorded' });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to update request', error: err.message });
+  }
+};
+
+// 🆕 Upload verification document (passport/school cert)
+export const uploadNameCorrectionDoc = async (req, res) => {
+  const { studentId } = req.body;
+  const file = req.file;
+
+  if (!file) return res.status(400).json({ message: 'No file uploaded' });
+
+  try {
+    const exam = await Examination.findOne({ studentId });
+    if (!exam) return res.status(404).json({ message: 'Examination record not found' });
+
+    exam.nameCorrectionDoc = file.path;
+    exam.requiredDocs.passportUploaded = true;
+    await exam.save();
+
+    res.status(200).json({
+      message: 'Document uploaded successfully',
+      path: file.path
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Upload failed', error: err.message });
+  }
+};
+
+export const getFullyClearedStudents = async (req, res) => {
+  try {
+    const cleared = await Clearance.find({
+      "faculty.status": "Approved",
+      "library.status": "Approved",
+      "lab.status": "Approved",
+      "finance.status": "Approved"
+    }).populate("studentId", "fullName studentId program email");
+
+    res.status(200).json(cleared);
+  } catch (err) {
+    res.status(500).json({ message: "Failed to fetch cleared students", error: err.message });
+  }
+};
+
+//🔹 Dashboard Stats for Examination Officer
+export const getExaminationStats = async (req, res) => {
+  try {
+    const pending = await Examination.countDocuments({ status: "Pending" });
+    const nameCorrections = await Examination.countDocuments({ nameCorrectionDoc: { $exists: true, $ne: null } });
+    const approved = await Examination.countDocuments({ status: "Approved" });
+
+    res.status(200).json({ pending, nameCorrections, approved });
+  } catch (err) {
+    res.status(500).json({ message: "Failed to fetch examination stats", error: err.message });
+  }
+};
+
+// 🔹 Get total number of passed and failed students
+export const getPassFailSummary = async (req, res) => {
+  try {
+    // Group course records by studentId and determine if they failed any course
+    const courseSummary = await CourseRecord.aggregate([
+      {
+        $group: {
+          _id: "$studentId",
+          failedCourses: {
+            $sum: {
+              $cond: [{ $eq: ["$passed", false] }, 1, 0]
+            }
+          }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          passedCount: {
+            $sum: {
+              $cond: [{ $eq: ["$failedCourses", 0] }, 1, 0]
+            }
+          },
+          failedCount: {
+            $sum: {
+              $cond: [{ $gt: ["$failedCourses", 0] }, 1, 0]
+            }
+          }
+        }
+      }
+    ]);
+
+    const { passedCount = 0, failedCount = 0 } = courseSummary[0] || {};
+    res.status(200).json({ passed: passedCount, failed: failedCount });
+  } catch (err) {
+    res.status(500).json({ message: "Failed to fetch pass/fail summary", error: err.message });
+  }
+};

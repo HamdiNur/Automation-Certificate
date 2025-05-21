@@ -24,7 +24,7 @@ const clearanceSchema = new mongoose.Schema({
   },
 
   finance: {
-    status: { type: String, enum: ['Pending', 'Cleared', 'Rejected'], default: 'Pending' },
+    status: { type: String, enum: ['Pending', 'Approved', 'Rejected'], default: 'Pending' },
     clearedAt: Date
   },
 
@@ -35,7 +35,7 @@ const clearanceSchema = new mongoose.Schema({
 
   finalStatus: {
     type: String,
-    enum: ['Incomplete', 'Cleared'],
+    enum: ['Incomplete', 'Approved'],
     default: 'Incomplete'
   },
 

@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import logo from "../assets/logo.png"; // Replace with your actual logo path
+import logo from "../assets/logo.png";
 
 const Login = () => {
-  const [form, setForm] = useState({ email: "", password: "", role: "admin" });
+  const [form, setForm] = useState({ userId: "", password: "" });
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
@@ -11,30 +11,47 @@ const Login = () => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
 
-    // ✅ Temporary: Skip backend, set role and token manually
-    const role = form.role.toLowerCase();
-    localStorage.setItem("token", "dummy-token");
-    localStorage.setItem("role", role);
+    try {
+      const res = await fetch("http://localhost:5000/api/users/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
 
-    // ✅ Redirect to lowercase route
-    if (role === "faculty") {
-      navigate("/faculty");
-    } else if (role === "admin") {
-      navigate("/admin");
-    } else if (role === "library") {
-      navigate("/library");
-    } else if (role === "lab") {
-      navigate("/lab");
-    } else if (role === "finance") {
-      navigate("/finance");
-    } else if (role === "examination") {
-      navigate("/examination");
-    } else {
-      setError("Unknown role selected");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Login failed");
+
+      const { userId, role } = data.user;
+
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("role", role);
+      localStorage.setItem("userId", userId);
+
+      const prefix = userId.substring(0, 2).toUpperCase();
+      const routeMap = {
+        AD: "admin",
+        FI: "finance",
+        LI: "library",
+        LB: "lab",
+        EX: "exam_office",
+        FA: "faculty",
+        ST: "student",
+        NU: "student"
+      };
+
+      const dashboard = routeMap[prefix];
+      if (dashboard) {
+        navigate(`/${dashboard}`);
+      } else {
+        setError("Unknown user ID prefix. Cannot determine role.");
+      }
+
+    } catch (err) {
+      setError(err.message);
     }
   };
 
@@ -42,7 +59,6 @@ const Login = () => {
     <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4">
       <div className="bg-white shadow-xl rounded-xl p-8 w-full max-w-sm text-center">
         <img src={logo} alt="System Logo" className="w-24 mx-auto mb-4" />
-
         <h2 className="text-lg font-bold text-indigo-900">UNIVERSITY CERTIFICATE</h2>
         <p className="text-lg font-bold text-indigo-900 mb-6">CLEARANCE SYSTEM</p>
 
@@ -50,30 +66,13 @@ const Login = () => {
 
         <form onSubmit={handleSubmit} className="text-left space-y-4">
           <div>
-            <label className="text-sm font-medium text-gray-700">Role</label>
-            <select
-              name="role"
-              value={form.role}
-              onChange={handleChange}
-              className="w-full mt-1 p-2 border border-gray-300 rounded-md shadow-sm"
-            >
-              <option value="admin">Admin</option>
-              <option value="faculty">Faculty</option>
-              <option value="library">Library</option>
-              <option value="lab">Lab</option>
-              <option value="finance">Finance</option>
-              <option value="examination">Examination</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="text-sm font-medium text-gray-700">Email</label>
+            <label className="text-sm font-medium text-gray-700">User ID</label>
             <input
-              name="email"
-              type="email"
-              value={form.email}
+              name="userId"
+              type="text"
+              value={form.userId}
               onChange={handleChange}
-              placeholder="Email address"
+              placeholder="User ID"
               required
               className="w-full mt-1 p-2 border border-gray-300 rounded-md"
             />

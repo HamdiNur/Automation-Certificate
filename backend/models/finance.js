@@ -40,8 +40,8 @@ const financeSchema = new mongoose.Schema({
 
   status: { // 🔹 Optional: could be helpful if approval needed
     type: String,
-    enum: ['Pending', 'Approved'],
-    default: 'Approved',
+    enum: ['Pending', 'Approved','Rejected'],
+    default: 'Pending',
   },
 
   balanceAfter: { // 🔹 Optional: store real-time balance for this transaction

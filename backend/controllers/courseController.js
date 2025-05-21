@@ -1,73 +1,3 @@
-// import CourseRecord from '../models/course.js';
-// import Student from '../models/Student.js';
-
-// // 🔹 Create course records for a student
-// export const createCourseRecords = async (req, res) => {
-//   const { studentId, courses } = req.body; // courses = [{ name, code, passed }]
-
-//   try {
-//     const record = await CourseRecord.create({ studentId, courses });
-//     res.status(201).json({ message: 'Course record created', record });
-//   } catch (err) {
-//     res.status(500).json({ message: 'Failed to create record', error: err.message });
-//   }
-// };
-
-// // 🔹 Update a course status (passed or failed)
-// export const updateCourseStatus = async (req, res) => {
-//   const { studentId, courseCode, passed } = req.body;
-
-//   try {
-//     const record = await CourseRecord.findOne({ studentId });
-//     if (!record) return res.status(404).json({ message: 'Course record not found' });
-
-//     const course = record.courses.find(c => c.code === courseCode);
-//     if (!course) return res.status(404).json({ message: 'Course not found' });
-
-//     course.passed = passed;
-//     await record.save();
-
-//     res.status(200).json({ message: 'Course status updated', record });
-//   } catch (err) {
-//     res.status(500).json({ message: 'Error updating course', error: err.message });
-//   }
-// };
-
-// // 🔹 Get all courses of a student
-// export const getStudentCourses = async (req, res) => {
-//   const { studentId } = req.params;
-
-//   try {
-//     const record = await CourseRecord.findOne({ studentId }).populate('studentId');
-//     if (!record) return res.status(404).json({ message: 'No course records found' });
-
-//     res.status(200).json(record);
-//   } catch (err) {
-//     res.status(500).json({ message: 'Failed to fetch course record', error: err.message });
-//   }
-// };
-
-// // 🔹 Check if student passed all courses
-// export const checkGraduationEligibility = async (req, res) => {
-//   const { studentId } = req.params;
-
-//   try {
-//     const record = await CourseRecord.findOne({ studentId });
-//     if (!record) return res.status(404).json({ message: 'Course record not found' });
-
-//     const failed = record.courses.filter(c => c.passed === false);
-//     const eligible = failed.length === 0;
-
-//     res.status(200).json({
-//       studentId,
-//       eligible,
-//       failedCourses: failed.map(c => c.name)
-//     });
-//   } catch (err) {
-//     res.status(500).json({ message: 'Failed to check eligibility', error: err.message });
-//   }
-// };
-
 
 
 import CourseRecord from '../models/course.js';
@@ -146,25 +76,89 @@ export const getStudentCourses = async (req, res) => {
     res.status(500).json({ message: 'Failed to fetch course record', error: err.message });
   }
 };
-// 🔹 Check if student passed all courses
-export const checkGraduationEligibility = async (req, res) => {
-  const { studentId } = req.params;
+export const checkEligibility = async (req, res) => {
+  const { idOrCode } = req.params;
 
   try {
-    const records = await CourseRecord.find({ studentId });
+    // Try finding by readable studentId (e.g., CA210081)
+    let student = await Student.findOne({ studentId: idOrCode });
+
+    // If not found, try as MongoDB _id
+    if (!student && idOrCode.match(/^[0-9a-fA-F]{24}$/)) {
+      student = await Student.findById(idOrCode);
+    }
+
+    if (!student) return res.status(404).json({ message: 'Student not found' });
+
+    const records = await CourseRecord.find({ studentId: student._id });
 
     if (records.length === 0)
       return res.status(404).json({ message: 'No course records found' });
 
-    const failed = records.filter(c => c.passed === false);
+    const failed = records.filter(c => !c.passed);
     const eligible = failed.length === 0;
 
     res.status(200).json({
-      studentId,
+      studentId: student.studentId,
+      fullName: student.fullName,
       eligible,
       failedCourses: failed.map(c => c.courseName)
     });
   } catch (err) {
-    res.status(500).json({ message: 'Failed to check eligibility', error: err.message });
+    res.status(500).json({ message: 'Eligibility check failed', error: err.message });
+  }
+};
+// 🔹 Get course records for ALL students
+export const getAllStudentCourses = async (req, res) => {
+  try {
+    const students = await Student.find().lean();
+    const allRecords = [];
+
+    for (const student of students) {
+      const courses = await CourseRecord.find({ studentId: student._id }).lean();
+      allRecords.push({
+        student: {
+          _id: student._id,
+          fullName: student.fullName,
+          studentId: student.studentId,
+          program: student.program,
+          faculty: student.faculty
+        },
+        courses
+      });
+    }
+
+    res.status(200).json(allRecords);
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to fetch all student courses', error: err.message });
+  }
+};
+
+export const getAllPassedStudents = async (req, res) => {
+  try {
+    const students = await Student.find().lean();
+    const passedStudents = [];
+
+    for (const student of students) {
+      const hasFailed = await CourseRecord.exists({
+        studentId: student._id,
+        passed: false
+      });
+
+      if (!hasFailed) {
+        passedStudents.push({
+          studentId: student.studentId,
+          fullName: student.fullName,
+          email: student.email
+        });
+      }
+    }
+
+    res.status(200).json({
+      count: passedStudents.length,
+      passedStudents
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to fetch passed students', error: err.message });
   }
 };

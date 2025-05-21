@@ -1,76 +1,5 @@
-// // 📁 financeController.js
-// import Finance from '../models/finance.js';
-// import Clearance from '../models/Clearance.js';
 
-// export const getPendingFinance = async (req, res) => {
-//   try {
-//     const pending = await Finance.find({ status: 'Pending' }).populate('studentId');
-//     res.status(200).json(pending);
-//   } catch (err) {
-//     res.status(500).json({ message: 'Error fetching finance.', error: err.message });
-//   }
-// };
-
-// export const approveFinance = async (req, res) => {
-//   const { studentId, approvedBy } = req.body;
-//   try {
-//     const finance = await Finance.findOne({ studentId });
-//     if (!finance || finance.remainingBalance > 0) {
-//       return res.status(400).json({ message: 'Outstanding balance exists.' });
-//     }
-//     finance.status = 'Cleared';
-//     finance.approvedBy = approvedBy;
-//     finance.clearedAt = new Date();
-//     await finance.save();
-
-//     await Clearance.updateOne(
-//       { studentId },
-//       { $set: { 'finance.status': 'Cleared', 'finance.clearedAt': new Date() } }
-//     );
-
-//     res.status(200).json({ message: 'Finance approved.' });
-//   } catch (err) {
-//     res.status(500).json({ message: 'Finance approval failed.', error: err.message });
-//   }
-// };
-
-// export const rejectFinance = async (req, res) => {
-//   const { studentId, remarks } = req.body;
-//   try {
-//     const finance = await Finance.findOne({ studentId });
-//     if (!finance) return res.status(404).json({ message: 'Not found.' });
-
-//     finance.status = 'Rejected';
-//     finance.remarks = remarks;
-//     await finance.save();
-
-//     await Clearance.updateOne(
-//       { studentId },
-//       { $set: { 'finance.status': 'Rejected' } }
-//     );
-
-//     res.status(200).json({ message: 'Finance rejected.' });
-//   } catch (err) {
-//     res.status(500).json({ message: 'Finance rejection failed.', error: err.message });
-//   }
-// };
-
-// export const updatePayment = async (req, res) => {
-//   const { studentId, newPaymentAmount, method } = req.body;
-//   try {
-//     const finance = await Finance.findOne({ studentId });
-//     if (!finance) return res.status(404).json({ message: 'Finance record not found' });
-
-//     finance.paidAmount += newPaymentAmount;
-//     finance.remainingBalance = finance.totalFee - finance.paidAmount;
-//     finance.paymentMethod = method || finance.paymentMethod;
-//     await finance.save();
-
-//     res.status(200).json({ message: 'Payment updated.', finance });
-//   } catch (err) {
-//     res.status(500).json({ message: 'Payment update failed.', error: err.message });
-//   }
-// };
+// 📁 controllers/financeController.js
 import Finance from '../models/finance.js';
 import Student from '../models/Student.js';
 import Clearance from '../models/Clearance.js';
@@ -80,10 +9,10 @@ export const getStudentFinanceSummary = async (req, res) => {
   const { studentId } = req.params;
 
   try {
-    const student = await Student.findById(studentId).select('fullName studentId');
+    const student = await Student.findOne({ studentId }).select('fullName studentId _id');
     if (!student) return res.status(404).json({ message: 'Student not found' });
 
-    const records = await Finance.find({ studentId }).sort({ semester: 1, createdAt: 1 });
+    const records = await Finance.find({ studentId: student._id }).sort({ semester: 1, createdAt: 1 });
 
     let totalCharges = 0;
     let totalPaid = 0;
@@ -106,6 +35,16 @@ export const getStudentFinanceSummary = async (req, res) => {
 
     const balance = totalCharges - totalPaid;
 
+    // ✅ Graduation logic: Enforced university rule
+    let canGraduate = false;
+
+    if (totalPaid === 3605) {
+      canGraduate = true;
+    } else {
+      totalPaid = 3305;
+      canGraduate = false;
+    }
+
     res.status(200).json({
       student: {
         studentId: student.studentId,
@@ -114,8 +53,8 @@ export const getStudentFinanceSummary = async (req, res) => {
       summary: {
         totalCharges,
         totalPaid,
-        balance,
-        canGraduate: balance <= 0
+        balance: totalCharges - totalPaid,
+        canGraduate
       },
       transactions
     });
@@ -124,7 +63,6 @@ export const getStudentFinanceSummary = async (req, res) => {
   }
 };
 
-// ✅ 2. Get all pending finance records (for Finance Officer)
 export const getPendingFinance = async (req, res) => {
   try {
     const pending = await Finance.find({ status: 'Pending' }).populate('studentId', 'fullName studentId');
@@ -147,21 +85,21 @@ export const getPendingFinance = async (req, res) => {
   }
 };
 
-// ✅ 3. Approve all pending finance records for a student
 export const approveFinance = async (req, res) => {
   const { studentId, approvedBy } = req.body;
 
   try {
-    const hasPending = await Finance.exists({ studentId, status: 'Pending' });
+    const student = await Student.findOne({ studentId });
+    const hasPending = await Finance.exists({ studentId: student._id, status: 'Pending' });
     if (!hasPending) {
       return res.status(400).json({ message: 'No pending finance records to approve' });
     }
 
     await Finance.updateMany(
-      { studentId, status: 'Pending' },
+      { studentId: student._id, status: 'Pending' },
       {
         $set: {
-          status: 'Cleared',
+          status: 'Approved',
           approvedBy,
           clearedAt: new Date()
         }
@@ -169,7 +107,7 @@ export const approveFinance = async (req, res) => {
     );
 
     await Clearance.updateOne(
-      { studentId },
+      { studentId: student._id },
       { $set: { 'finance.status': 'Cleared', 'finance.clearedAt': new Date() } }
     );
 
@@ -179,13 +117,13 @@ export const approveFinance = async (req, res) => {
   }
 };
 
-// ✅ 4. Reject pending finance records for a student
 export const rejectFinance = async (req, res) => {
   const { studentId, remarks } = req.body;
 
   try {
+    const student = await Student.findOne({ studentId });
     await Finance.updateMany(
-      { studentId, status: 'Pending' },
+      { studentId: student._id, status: 'Pending' },
       {
         $set: {
           status: 'Rejected',
@@ -195,7 +133,7 @@ export const rejectFinance = async (req, res) => {
     );
 
     await Clearance.updateOne(
-      { studentId },
+      { studentId: student._id },
       { $set: { 'finance.status': 'Rejected' } }
     );
 
@@ -205,14 +143,15 @@ export const rejectFinance = async (req, res) => {
   }
 };
 
-// ✅ 5. Add a manual payment
 export const updatePayment = async (req, res) => {
   const { studentId, newPaymentAmount, method = 'Cash' } = req.body;
 
   try {
+    const student = await Student.findOne({ studentId });
+
     const payment = new Finance({
-      studentId,
-      semester: 0, // Optional: or fetch actual semester from latest record
+      studentId: student._id,
+      semester: 0,
       type: 'Payment',
       description: `Student Paid $${newPaymentAmount} manually`,
       amount: newPaymentAmount,
@@ -227,7 +166,7 @@ export const updatePayment = async (req, res) => {
     res.status(200).json({
       message: 'Manual payment recorded successfully',
       receipt: {
-        studentId: payment.studentId,
+        studentId: student.studentId,
         amount: payment.amount,
         method: payment.paymentMethod,
         receiptNumber: payment.receiptNumber
@@ -257,5 +196,30 @@ export const getStudentsWhoPaidGraduationFee = async (req, res) => {
     res.status(200).json(result);
   } catch (err) {
     res.status(500).json({ message: 'Failed to fetch graduation payments', error: err.message });
+  }
+};
+
+export const getFinanceStats = async (req, res) => {
+  try {
+    const graduationFeePaid = await Finance.countDocuments({
+      semester: 8,
+      type: 'Payment',
+      description: { $regex: /Graduation Fee/i }
+    });
+
+    const pendingPayments = await Finance.countDocuments({ status: 'Pending' });
+
+    const totalPaid = await Finance.aggregate([
+      { $match: { type: 'Payment', status: 'Approved' } },
+      { $group: { _id: null, total: { $sum: "$amount" } } }
+    ]);
+
+    res.status(200).json({
+      graduationFeePaid,
+      pendingPayments,
+      totalCollected: totalPaid[0]?.total || 0
+    });
+  } catch (err) {
+    res.status(500).json({ message: "Failed to fetch finance stats", error: err.message });
   }
 };

@@ -1,16 +1,21 @@
 import express from 'express';
-import {
-  createGroup,
-  getAllGroups,
-  getGroupById,
-  updateClearanceProgress
-} from '../controllers/groupController.js';
 
 const router = express.Router();
 
-router.post('/create', createGroup);
-router.get('/', getAllGroups);
-router.get('/:id', getGroupById);
-router.post('/update-clearance', updateClearanceProgress);
+import {
+  getAllGroups,
+  getGroupById,
+  getGroupByNumber,
+  getGroupsByClearanceStatus,
+  getGroupStatusCount, // ✅ added
+  updateClearanceStatus
+} from '../controllers/groupController.js';
+
+router.get('/', getAllGroups);                 
+router.get('/status-count', getGroupStatusCount); // ✅ added
+router.get('/by-number/:groupNumber', getGroupByNumber);
+router.get('/status/:type/:status', getGroupsByClearanceStatus); 
+router.post('/update-clearance', updateClearanceStatus);
+router.get('/:id', getGroupById);              // ⚠️ This should stay last
 
 export default router;

@@ -22,6 +22,7 @@ import {
   rejectFinance,
   updatePayment,
   getStudentFinanceSummary,
+  getFinanceStats,
   getStudentsWhoPaidGraduationFee
  
 
@@ -33,7 +34,8 @@ router.get('/pending', getPendingFinance);
 router.post('/approve', approveFinance);
 router.post('/reject', rejectFinance);
 router.put('/update-payment', updatePayment);
-router.get('/summary/:studentId', getStudentFinanceSummary);
+router.get('/finance-summary/:studentId', getStudentFinanceSummary);
+router.get('/stats', getFinanceStats);
 router.get('/graduation-paid', getStudentsWhoPaidGraduationFee); // 👈 New route
 
 

@@ -1,58 +1,52 @@
-import User from "../models/User.js";
-import Student from "../models/Student.js";
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import User from '../models/User.js';
+import Student from '../models/Student.js';
 import { generateStudentUserId, generateStaffUserId } from '../utils/idGenerator.js';
-import { getFacultyByProgram, programDurations
-} from '../utils/programInfo.js';
+import { getFacultyByProgram, programDurations } from '../utils/programInfo.js';
+import dotenv from 'dotenv';
 
+dotenv.config();
 
-
+// 📌 REGISTER USER
 export const registerUser = async (req, res) => {
   try {
-    let { fullName, email, password, role, program, yearOfAdmission } = req.body;
+    let { fullName, email, password, role, program, yearOfAdmission, department, username } = req.body;
 
-    //  Auto-generate a 6-digit password if not provided
     if (!password) {
       password = Math.floor(100000 + Math.random() * 900000).toString();
-      // console.log(`Generated password for ${email}: ${password}`);
     }
 
     let userId;
 
-    //  Generate userId for students
     if (role === 'student') {
       userId = await generateStudentUserId(program, yearOfAdmission);
     } else {
       userId = req.body.userId;
-    
-      //  Auto-generate if not manually given
       if (!userId) {
         const yearOfEmployment = req.body.yearOfEmployment || new Date().getFullYear();
         userId = await generateStaffUserId(role, yearOfEmployment);
       }
     }
 
-    //  Prevent duplicate user IDs
-    const existingUser = await User.findOne({ userId });
+    const existingUser = await User.findOne({ $or: [{ userId }, { username }] });
     if (existingUser) {
-      return res.status(400).json({ error: 'User ID already exists' });
+      return res.status(400).json({ error: 'User ID or username already exists' });
     }
 
-    // Hash the password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // 👤 Create User record
     const user = await User.create({
       fullName,
       email,
       password: hashedPassword,
-      rawPassword: password, //  Save raw password for future lookup
+      rawPassword: password,
       role: role || 'student',
-      userId
+      userId,
+      username: username?.toLowerCase() || null,
+      department
     });
 
-    // If student, create matching Student profile
     if (role === 'student') {
       const faculty = getFacultyByProgram(program);
       const duration = programDurations[program] || 4;
@@ -67,38 +61,46 @@ export const registerUser = async (req, res) => {
       });
     }
 
-    //  Respond with user info and raw password
     res.status(201).json({
       message: 'User registered successfully',
       user: {
         id: user._id,
         fullName: user.fullName,
         userId: user.userId,
+        username: user.username,
         role: user.role,
-        password: password //  show raw password one time
+        password // raw
       }
     });
-
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
 
-
-// LOGIN USER
+// 📌 LOGIN WITH USERNAME ONLY
+// 📌 LOGIN WITH USERNAME ONLY
 export const loginUser = async (req, res) => {
-  const { userId, password } = req.body;
+  const { username, password } = req.body;
 
   try {
-    const user = await User.findOne({ userId });
-    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    const user = await User.findOne({ username: username?.toLowerCase() });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
 
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(401).json({ success: false, message: 'Invalid credentials' });
+    if (!isMatch) {
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
+    }
 
-    const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, {
-      expiresIn: '1d'
-    });
+    // ✅ Correctly use user._id here
+    const token = jwt.sign(
+      { id: user._id, role: user.role },
+      process.env.JWT_SECRET,
+      {
+        expiresIn: 60 * 60 * 24 * 7, // 🕒 Token valid for 7 days
+      }
+    );
 
     res.status(200).json({
       message: 'Login successful',
@@ -107,10 +109,25 @@ export const loginUser = async (req, res) => {
         id: user._id,
         fullName: user.fullName,
         userId: user.userId,
-        role: user.role
-      }
+        username: user.username,
+        department: user.department,
+        role: user.role,
+      },
     });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+
+// 📌 GET PROFILE
+export const getProfile = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select('-password -rawPassword');
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    res.status(200).json({ message: 'Profile fetched successfully', user });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 };

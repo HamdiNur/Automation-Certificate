@@ -1,4 +1,4 @@
-// seedCourseRecords.js
+// 📁 seed/seedCourseRecords.js
 
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
@@ -8,10 +8,10 @@ import Student from '../models/Student.js';
 import { connectDB } from '../config/db.js';
 
 dotenv.config();
-connectDB();
+await connectDB();
 
-const grades = ['A', 'B', 'C', 'D', 'F'];
 const isPassed = (grade) => grade !== 'F';
+
 const semesterCourses = {
   1: [
     ['CA114', 'Python Programming'],
@@ -78,43 +78,36 @@ const semesterCourses = {
 
 const seedCourseRecords = async () => {
   try {
-    await CourseRecord.deleteMany(); // Optional: clear existing
-
+    await CourseRecord.deleteMany(); // Clear old course records
     const students = await Student.find({});
     const allRecords = [];
 
-   for (let i = 0; i < students.length; i++) {
-  const student = students[i];
-  const shouldPassAll = i < Math.floor(students.length * 0.5); // 50% pass all
+    const passRate = 0.6; // ✅ 60% students will pass all courses
 
-  for (let semester = 1; semester <= 8; semester++) {
-    for (const [courseCode, courseName] of semesterCourses[semester]) {
-      let grade;
+    for (let i = 0; i < students.length; i++) {
+      const student = students[i];
+      const shouldPassAll = i < Math.floor(students.length * passRate);
 
-      if (shouldPassAll) {
-        // Give only passing grades: A, B, C, D
-        grade = faker.helpers.arrayElement(['A', 'B', 'C', 'D']);
-      } else {
-        // Include a chance of F
-        grade = faker.helpers.arrayElement(['A', 'B', 'C', 'D', 'F']);
+      for (let semester = 1; semester <= 8; semester++) {
+        for (const [courseCode, courseName] of semesterCourses[semester]) {
+          const grade = shouldPassAll
+            ? faker.helpers.arrayElement(['A', 'B', 'C', 'D'])
+            : faker.helpers.arrayElement(['A', 'B', 'C', 'D', 'F']);
+
+          allRecords.push({
+            studentId: student._id,
+            semester,
+            courseCode,
+            courseName,
+            grade,
+            passed: isPassed(grade)
+          });
+        }
       }
-
-      const passed = isPassed(grade); // ✅ Only fails if grade === 'F'
-
-      allRecords.push({
-        studentId: student._id,
-        semester,
-        courseCode,
-        courseName,
-        grade,
-        passed
-      });
     }
-  }
-}
 
     await CourseRecord.insertMany(allRecords);
-    console.log(`✅ Seeded ${allRecords.length} course records for ${students.length} students.`);
+    console.log(`✅ Seeded ${allRecords.length} course records for ${students.length} students (60% passed).`);
     process.exit();
   } catch (err) {
     console.error('❌ Failed to seed course records:', err.message);

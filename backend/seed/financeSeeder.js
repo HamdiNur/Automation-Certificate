@@ -14,9 +14,8 @@ let receiptCounter = 1;
 
 const getNextReceipt = () => `RCPT-${String(receiptCounter++).padStart(5, '0')}`;
 
-// 🔁 Generate semester timeline
 const getSemesterBaseDates = (sem) => {
-  const start = new Date(2021, 9, 10); // September 1, 2021
+  const start = new Date(2021, 9, 10);
   const semesterStart = new Date(start.setMonth(8 + (sem - 1) * 6));
   return {
     month1: new Date(semesterStart),
@@ -36,14 +35,14 @@ const seedFinance = async () => {
     for (const student of students) {
       let balance = 0;
 
-      // 🔹 Admission Fee (one-time before Semester 1)
-      const admissionDate = new Date(2021, 8, 2); //  25, 2021
+      // 🧾 Admission Fee
+      const admissionDate = new Date(2021, 8, 2);
       balance += 25;
       financeData.push({
         studentId: student._id,
         semester: 0,
         type: 'Charge',
-        description: 'Admission Fee  $25',
+        description: 'Admission Fee $25',
         amount: 25,
         balanceAfter: balance,
         createdAt: admissionDate,
@@ -51,7 +50,8 @@ const seedFinance = async () => {
         receiptNumber: 'N/A',
         status: 'Approved'
       });
-       balance -= 25; 
+
+      balance -= 25;
       financeData.push({
         studentId: student._id,
         semester: 0,
@@ -59,13 +59,13 @@ const seedFinance = async () => {
         description: 'Student Paid $25 Admission Fee',
         amount: 25,
         balanceAfter: 0,
-        createdAt: new Date(2021, 8, 2),
+        createdAt: admissionDate,
         paymentMethod: faker.helpers.arrayElement(['Cash', 'EVC Plus']),
         receiptNumber: getNextReceipt(),
         status: 'Approved'
       });
 
-      // 🔁 Loop through 8 semesters
+      // 🔁 Loop 8 semesters
       for (let sem = 1; sem <= 8; sem++) {
         const { month1, month2, month3, payDate, gradDate } = getSemesterBaseDates(sem);
 
@@ -75,55 +75,67 @@ const seedFinance = async () => {
           { amount: 145, date: month3 }
         ];
 
-        const hasGraduation = sem === 8 && Math.random() < 0.6;
-        if (hasGraduation) {
-          charges.push({
-            amount: GRADUATION_FEE,
-            date: gradDate,
-            description: `Graduation Fee - $${GRADUATION_FEE}`
-          });
+        // 🎓 Graduation logic — only for semester 8
+        let graduationScenario = null;
+        if (sem === 8) {
+          const random = Math.random();
+          if (random < 0.33) graduationScenario = 'notCharged';
+          else if (random < 0.66) graduationScenario = 'chargedNotPaid';
+          else graduationScenario = 'chargedAndPaid';
+
+          if (graduationScenario === 'chargedNotPaid' || graduationScenario === 'chargedAndPaid') {
+            charges.push({
+              amount: GRADUATION_FEE,
+              date: gradDate,
+              description: `Graduation Fee - $${GRADUATION_FEE}`
+            });
+          }
         }
 
-        // 💳 Charges
+        // 💳 Add Charges
         for (const charge of charges) {
           balance += charge.amount;
+
+          const isGraduationCharge = charge.description?.includes("Graduation");
+          const isPendingGradFee = graduationScenario === 'chargedNotPaid' && isGraduationCharge;
+
           financeData.push({
             studentId: student._id,
             semester: sem,
-             type: 'Charge',
+            type: 'Charge',
             description: charge.description || `Tuition Charge - $${charge.amount}`,
             amount: charge.amount,
             balanceAfter: balance,
             createdAt: charge.date,
             paymentMethod: 'Cash',
             receiptNumber: 'N/A',
-            status: 'Approved'
+            status: isPendingGradFee ? 'Pending' : 'Approved'
           });
         }
 
-        // 🧾 Payment if eligible
-        const shouldPay = !hasGraduation || Math.random() < 0.9;
-if (shouldPay) {
-  const paymentDesc = hasGraduation
-    ? `Total Amount student paid $${balance} for Tuition and Graduation Fees this semester`
-    : `Total Amount student paid $${balance} for Tuition Fee this semester`;
+        // ✅ Add Payment (skip only if graduation fee was charged but not paid)
+        const skipPayment = graduationScenario === 'chargedNotPaid';
+        if (!skipPayment) {
+          const paymentDesc =
+            graduationScenario === 'chargedAndPaid'
+              ? `Student paid $${balance} for Tuition and Graduation Fee`
+              : `Student paid $${balance} for Tuition Fee`;
 
-  financeData.push({
-    studentId: student._id,
-    semester: sem,
-    type: 'Payment',
-    description: paymentDesc,
-    amount: balance,
-    balanceAfter: 0,
-    createdAt: payDate,
-    paymentMethod: faker.helpers.arrayElement(['Cash', 'EVC Plus']),
-    receiptNumber: getNextReceipt(),
-    status: 'Approved'
-  });
+          financeData.push({
+            studentId: student._id,
+            semester: sem,
+            type: 'Payment',
+            description: paymentDesc,
+            amount: balance,
+            balanceAfter: 0,
+            createdAt: payDate,
+            paymentMethod: faker.helpers.arrayElement(['Cash', 'EVC Plus']),
+            receiptNumber: getNextReceipt(),
+            status: 'Approved'
+          });
 
-  balance = 0;
-}
-           
+          balance = 0;
+        }
       }
     }
 
