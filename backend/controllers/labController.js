@@ -57,15 +57,20 @@ export const getPendingLab = async (req, res) => {
 };
 
 // 🔹 Approve lab clearance
+
 export const approveLab = async (req, res) => {
   try {
-    const { groupId, approvedBy } = req.body;
+    const { groupId, approvedBy, returnedItems, issues } = req.body;
     const record = await Lab.findOne({ groupId });
     if (!record) return res.status(404).json({ message: 'Lab record not found' });
 
     record.status = 'Approved';
     record.clearedAt = new Date();
     record.approvedBy = approvedBy || 'System';
+
+    record.returnedItems = returnedItems || record.returnedItems || 'All items returned';
+    record.issues = issues || record.issues || 'None';
+
     await record.save();
 
     res.status(200).json({ message: 'Lab record approved', record });
@@ -88,5 +93,33 @@ export const rejectLab = async (req, res) => {
     res.status(200).json({ message: 'Lab record rejected', record });
   } catch (err) {
     res.status(500).json({ error: 'Rejection failed', message: err.message });
+  }
+};
+
+
+// 🔹 Get counts of lab clearance statuses
+export const getLabStats = async (req, res) => {
+  try {
+    const approved = await Lab.countDocuments({ status: 'Approved' });
+    const pending = await Lab.countDocuments({ status: 'Pending' });
+    const rejected = await Lab.countDocuments({ status: 'Rejected' });
+
+    res.status(200).json({ approved, pending, rejected });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch lab stats', message: err.message });
+  }
+}
+
+export const getLabProfile = async (req, res) => {
+  try {
+    const userId = req.user.id; // Assume token verification middleware sets req.user
+    const profile = await Lab.findById(userId);
+
+    if (!profile) {
+      return res.status(404).json({ message: "Profile not found" });
+    }
+    res.status(200).json(profile);
+  } catch (err) {
+    res.status(500).json({ message: "Failed to fetch profile", error: err.message });
   }
 };

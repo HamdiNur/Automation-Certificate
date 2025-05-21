@@ -2,6 +2,8 @@ import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import Group from '../models/group.js';
 import Student from '../models/Student.js';
+import Faculty from '../models/faculty.js'; // ✅ corrected name
+
 import { connectDB } from '../config/db.js';
 
 dotenv.config();
@@ -11,8 +13,9 @@ const seedGroups = async () => {
   try {
     // Step 1: Clean existing
     await Group.deleteMany();
+    await Faculty.deleteMany(); // ✅ Also clear Faculty records
     await Student.updateMany({}, { $unset: { groupId: "" } });
-    console.log('🧹 Cleared previous groups and unlinked students.');
+    console.log('🧹 Cleared previous groups, faculty records, and unlinked students.');
 
     // Step 2: Fetch 100 students
     const students = await Student.find().limit(100);
@@ -31,7 +34,7 @@ const seedGroups = async () => {
       indexesToApprove.add(Math.floor(Math.random() * totalGroups));
     }
 
-    // Unique 25 project titles
+    // Step 5: Project titles
     const projectTitles = [
       'Ride-Sharing System',
       'Smart Parking Assistant',
@@ -60,7 +63,7 @@ const seedGroups = async () => {
       'Virtual Library with PDF Preview'
     ];
 
-    // Step 5: Loop to create groups
+    // Step 6: Create groups
     for (let i = 0; i < totalGroups; i++) {
       const groupMembers = shuffled.slice(i * 4, i * 4 + 4);
       const isApproved = indexesToApprove.has(i);
@@ -95,8 +98,23 @@ const seedGroups = async () => {
         clearedAt: isApproved ? new Date() : null
       });
 
+      // 🔗 Update students with groupId
       for (const member of groupMembers) {
         await Student.findByIdAndUpdate(member._id, { groupId: group._id });
+      }
+
+      // ✅ Create Faculty clearance record if approved
+      if (isApproved) {
+        await Faculty.create({
+          studentId: groupMembers[0]._id, // First member handles clearance
+          groupId: group._id,
+          thesisTitle: projectTitles[i],
+          printedThesisSubmitted: true,
+          signedFormSubmitted: true,
+          softCopyReceived: true,
+          status: 'Approved',
+          clearedAt: new Date()
+        });
       }
 
       console.log(

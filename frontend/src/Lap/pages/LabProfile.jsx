@@ -1,21 +1,42 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import LabSidebar from "../components/LabSidebar";
-import "./style/style.css"
-const dummyLab = {
-  name: "Engineer Yusuf Abdi",
-  email: "yusuf.abdi@just.edu.so",
-  role: "Lab Officer"
-};
+import "./style/style.css";
 
 function LabProfile() {
-  const [profile, setProfile] = useState(dummyLab);
-  const [editMode, setEditMode] = useState(false);
-  const [temp, setTemp] = useState(profile);
+  const [labUser, setLabUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const saveProfile = () => {
-    setProfile(temp);
-    setEditMode(false);
-  };
+  useEffect(() => {
+    const fetchProfile = async () => {
+      const token = localStorage.getItem("token");
+
+      if (!token) {
+        setError("No token found. Please login.");
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const res = await fetch("http://localhost:5000/api/users/profile", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Failed to fetch profile");
+
+        setLabUser(data.user);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProfile();
+  }, []);
 
   return (
     <div className="dashboard-wrapper">
@@ -23,35 +44,18 @@ function LabProfile() {
       <div className="dashboard-main">
         <h2>My Profile</h2>
 
-        <div className="student-card">
-          {!editMode ? (
-            <>
-              <p><strong>Name:</strong> {profile.name}</p>
-              <p><strong>Email:</strong> {profile.email}</p>
-              <p><strong>Role:</strong> {profile.role}</p>
-              <button className="btn-view" onClick={() => setEditMode(true)}>
-                Edit Profile
-              </button>
-            </>
-          ) : (
-            <>
-              <input
-                type="text"
-                value={temp.name}
-                onChange={(e) => setTemp({ ...temp, name: e.target.value })}
-              />
-              <input
-                type="email"
-                value={temp.email}
-                onChange={(e) => setTemp({ ...temp, email: e.target.value })}
-              />
-              <div className="modal-buttons">
-                <button className="btn-confirm" onClick={saveProfile}>Save</button>
-                <button className="btn-cancel" onClick={() => setEditMode(false)}>Cancel</button>
-              </div>
-            </>
-          )}
-        </div>
+        {loading ? (
+          <p>Loading profile...</p>
+        ) : error ? (
+          <p style={{ color: "red" }}>❌ {error}</p>
+        ) : (
+          <div className="student-card">
+            <p><strong>Name:</strong> {labUser.fullName}</p>
+            <p><strong>Email:</strong> {labUser.email}</p>
+            <p><strong>Department:</strong> {labUser.department || "N/A"}</p>
+            <p><strong>Role:</strong> {labUser.role}</p>
+          </div>
+        )}
       </div>
     </div>
   );

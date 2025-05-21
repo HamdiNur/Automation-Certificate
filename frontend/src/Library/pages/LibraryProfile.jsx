@@ -1,45 +1,41 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import axios from "axios";
 import LibrarySidebar from "../components/LibrarySidebar";
 import "./styles/style.css";
 
-
-const dummyLibrarian = {
-  name: "Ms. Faduma Osman",
-  email: "faduma.library@just.edu.so",
-  role: "Library Officer"
-};
-
 function LibraryProfile() {
-  const [profile, setProfile] = useState(dummyLibrarian);
+  const [profile, setProfile] = useState(null);
   const [editMode, setEditMode] = useState(false);
-  const [temp, setTemp] = useState(profile);
+  const [temp, setTemp] = useState({});
+  const [loading, setLoading] = useState(true);
 
-  const [passwords, setPasswords] = useState({
-    current: "",
-    new: "",
-    confirm: "",
-  });
-  const [passwordMessage, setPasswordMessage] = useState(null);
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        const res = await axios.get("http://localhost:5000/api/users/profile", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setProfile(res.data.user);
+        setTemp(res.data.user);
+      } catch (err) {
+        console.error("Error fetching profile", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProfile();
+  }, []);
 
   const saveProfile = () => {
     setProfile(temp);
     setEditMode(false);
+    // Optional: send PUT request to backend here
   };
 
-  const handlePasswordChange = () => {
-    if (!passwords.current || !passwords.new || !passwords.confirm) {
-      setPasswordMessage("⚠️ Please fill in all fields.");
-      return;
-    }
-
-    if (passwords.new !== passwords.confirm) {
-      setPasswordMessage("❌ New passwords do not match.");
-      return;
-    }
-
-    setPasswordMessage("✅ Password updated successfully.");
-    setPasswords({ current: "", new: "", confirm: "" });
-  };
+  if (loading) return <div className="dashboard-main">Loading profile...</div>;
+  if (!profile) return <div className="dashboard-main">Profile not found.</div>;
 
   return (
     <div className="dashboard-wrapper">
@@ -50,7 +46,8 @@ function LibraryProfile() {
         <div className="student-card">
           {!editMode ? (
             <>
-              <p><strong>Name:</strong> {profile.name}</p>
+              <p><strong>Name:</strong> {profile.fullName}</p>
+              <p><strong>Username:</strong> {profile.username}</p>
               <p><strong>Email:</strong> {profile.email}</p>
               <p><strong>Role:</strong> {profile.role}</p>
               <button className="btn-view" onClick={() => setEditMode(true)}>
@@ -61,59 +58,27 @@ function LibraryProfile() {
             <>
               <input
                 type="text"
-                value={temp.name}
-                onChange={(e) => setTemp({ ...temp, name: e.target.value })}
+                value={temp.fullName}
+                onChange={(e) => setTemp({ ...temp, fullName: e.target.value })}
+                placeholder="Full Name"
+              />
+              <input
+                type="text"
+                value={temp.username}
+                onChange={(e) => setTemp({ ...temp, username: e.target.value })}
+                placeholder="Username"
               />
               <input
                 type="email"
                 value={temp.email}
                 onChange={(e) => setTemp({ ...temp, email: e.target.value })}
+                placeholder="Email"
               />
               <div className="modal-buttons">
                 <button className="btn-confirm" onClick={saveProfile}>Save</button>
                 <button className="btn-cancel" onClick={() => setEditMode(false)}>Cancel</button>
               </div>
             </>
-          )}
-        </div>
-
-        {/* 🔐 Change Password Section */}
-        <div className="student-card">
-          <h3>Change Password</h3>
-          <input
-            type="password"
-            placeholder="Current Password"
-            value={passwords.current}
-            onChange={(e) => setPasswords({ ...passwords, current: e.target.value })}
-          />
-          <input
-            type="password"
-            placeholder="New Password"
-            value={passwords.new}
-            onChange={(e) => setPasswords({ ...passwords, new: e.target.value })}
-          />
-          <input
-            type="password"
-            placeholder="Confirm New Password"
-            value={passwords.confirm}
-            onChange={(e) => setPasswords({ ...passwords, confirm: e.target.value })}
-          />
-
-          <div className="modal-buttons">
-            <button className="btn-confirm" onClick={handlePasswordChange}>
-              Update Password
-            </button>
-          </div>
-
-          {passwordMessage && (
-            <p
-              style={{
-                marginTop: "10px",
-                color: passwordMessage.includes("✅") ? "green" : "red",
-              }}
-            >
-              {passwordMessage}
-            </p>
           )}
         </div>
       </div>

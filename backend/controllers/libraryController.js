@@ -131,3 +131,15 @@ export const getLibraryByStudentId = async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch library record', message: err.message });
   }
 };
+
+export const getLibraryStats = async (req, res) => {
+  try {
+    const pending = await Library.countDocuments({ status: "Pending" });
+    const approved = await Library.countDocuments({ status: "Approved" });
+    const rejected = await Library.countDocuments({ status: "Rejected" });
+
+    res.status(200).json({ pending, approved, rejected });
+  } catch (err) {
+    res.status(500).json({ message: "Failed to fetch library stats", error: err.message });
+  }
+};
