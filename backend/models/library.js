@@ -8,7 +8,7 @@ const librarySchema = new mongoose.Schema({
     ],
     groupId: { type: mongoose.Schema.Types.ObjectId, ref: 'Group' },
     facultyCleared: { type: Boolean, default: false },
-    thesisBookReveiced: { type: Boolean, default: false },
+      thesisBookReceived: { type: Boolean, default: false },
     thesisBookReceivedDate: Date,
     remarks: String,
     status: { type: String, enum: ['Pending', 'Approved', 'Rejected'], default: 'Pending' },

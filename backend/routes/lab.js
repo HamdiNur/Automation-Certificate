@@ -1,20 +1,24 @@
 import express from 'express';
 import {
   getAllLabClearances,
-  getLabByGroupId,
-  getLabByStudentId,
   getPendingLab,
   approveLab,
-  rejectLab
+  rejectLab,
+  updateLabStatus,
+  getLabByGroupId,
+  getLabByStudentId,
+  getLabStats,
 } from '../controllers/labController.js';
 
 const router = express.Router();
 
-router.get('/', getAllLabClearances);
+router.get('/all', getAllLabClearances);
 router.get('/pending', getPendingLab);
-router.get('/student/:studentId', getLabByStudentId);
-router.get('/:groupId', getLabByGroupId);
 router.post('/approve', approveLab);
 router.post('/reject', rejectLab);
+router.post('/update-status', updateLabStatus);
+router.get('/group/:groupId', getLabByGroupId);
+router.get('/student/:studentId', getLabByStudentId);
+router.get('/stats', getLabStats);
 
 export default router;

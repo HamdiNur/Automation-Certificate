@@ -14,6 +14,7 @@ const labSchema = new mongoose.Schema({
     approvedBy: String,
     updatedAt: { type: Date, default: Date.now }
   });
+  
 
 
   export default mongoose.model('lab', labSchema );

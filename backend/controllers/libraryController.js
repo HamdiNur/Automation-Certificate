@@ -30,14 +30,31 @@ export const approveLibrary = async (req, res) => {
     library.clearedAt = new Date();
     await library.save();
 
+    // ✅ Update clearance progress in group and clearance
     await Group.updateOne(
       { _id: groupId },
-      { $set: { 'clearanceProgress.library.status': 'Approved', 'clearanceProgress.library.date': new Date() } }
+      {
+        $set: {
+          'clearanceProgress.library.status': 'Approved',
+          'clearanceProgress.library.date': new Date()
+        }
+      }
     );
 
     await Clearance.updateMany(
       { groupId },
-      { $set: { 'library.status': 'Approved', 'library.clearedAt': new Date() } }
+      {
+        $set: {
+          'library.status': 'Approved',
+          'library.clearedAt': new Date()
+        }
+      }
+    );
+
+    // ✅ Update student records
+    await Student.updateMany(
+      { _id: { $in: library.members } },
+      { $set: { clearanceStatus: 'Approved', isCleared: true } }
     );
 
     res.status(200).json({ message: 'Library approved.' });
@@ -45,6 +62,7 @@ export const approveLibrary = async (req, res) => {
     res.status(500).json({ message: 'Approval failed.', error: err.message });
   }
 };
+
 
 // 🔹 Reject library clearance
 export const rejectLibrary = async (req, res) => {
@@ -129,5 +147,17 @@ export const getLibraryByStudentId = async (req, res) => {
     res.status(200).json(record);
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch library record', message: err.message });
+  }
+};
+
+export const getLibraryStats = async (req, res) => {
+  try {
+    const approved = await Library.countDocuments({ status: 'Approved' });
+    const pending = await Library.countDocuments({ status: 'Pending' });
+    const rejected = await Library.countDocuments({ status: 'Rejected' });
+
+    res.status(200).json({ approved, pending, rejected });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch stats', message: err.message });
   }
 };

@@ -1,0 +1,80 @@
+import React, { useEffect, useState } from "react";
+import axios from "../../api/axiosInstance";
+import LibrarySidebar from "../components/LibrarySidebar";
+import "./styles/style.css";
+
+function ApprovedSubmissions() {
+  const [records, setRecords] = useState([]);
+
+  const fetchApproved = async () => {
+    try {
+      const res = await axios.get("/library");
+      const approvedOnly = res.data.filter(item => item.status === "Approved");
+      setRecords(approvedOnly);
+    } catch (err) {
+      console.error("Error fetching approved records", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchApproved();
+  }, []);
+
+  return (
+    <div className="dashboard-wrapper">
+      <LibrarySidebar />
+      <div className="dashboard-main">
+        <h2>✅ Approved Submissions</h2>
+
+        <div className="pending-table">
+          <table>
+            <thead>
+              <tr>
+                <th>Group</th>
+                <th>Members</th>
+                <th>Faculty cleared</th>
+                <th>Thesis Received</th>
+                <th>Status</th>
+                <th>Approved On</th>
+              </tr>
+            </thead>
+            <tbody>
+              {records.length === 0 ? (
+                <tr><td colSpan="6">No approved submissions found.</td></tr>
+              ) : (
+                records.map(rec => (
+                  <tr key={rec._id}>
+                    <td>{rec.groupId?.groupNumber || "-"}</td>
+                    <td>
+                      {rec.members.map(m => (
+                        <div key={m._id} className="member-name">{m.fullName}</div>
+                      ))}
+                    </td>
+                    <td>
+                      <span className={`badge ${rec.facultyCleared ? 'badge-success' : 'badge-danger'}`}>
+                        {rec.facultyCleared ? "Cleared" : "Pending"}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={`badge ${rec.thesisBookReceived ? 'badge-success' : 'badge-danger'}`}>
+                        {rec.thesisBookReceived ? "Received" : "Missing"}
+                      </span>
+                    </td>
+                    <td>
+                      <span className="badge badge-success">Approved</span>
+                    </td>
+                    <td>
+                      {rec.clearedAt ? new Date(rec.clearedAt).toLocaleDateString() : "—"}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default ApprovedSubmissions;

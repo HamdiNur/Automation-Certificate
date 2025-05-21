@@ -66,15 +66,16 @@ const studentSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
-  clearanceStatus: {
-    type: String,
-    enum: ['pending', 'cleared', 'not_cleared'],
-    default: 'pending'
-  },
-  isCleared: {
-    type: Boolean,
-    default: false
-  }
+ clearanceStatus: {
+  type: String,
+  enum: ['Pending', 'Approved', 'Rejected'],
+  default: 'Pending'
+},
+isCleared: {
+  type: Boolean,
+  default: false
+}
+
 }, { timestamps: true });
 
 const Student = mongoose.models.Student || mongoose.model('Student', studentSchema);

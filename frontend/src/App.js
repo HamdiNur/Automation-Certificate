@@ -15,12 +15,24 @@ import NameCorrections from "./Admin/pages/NameCorrections";
 import LabDashboard from "./Lap/pages/LabDashboard";
 import LabEquipment from "./Lap/pages/LabEquipment";
 import LabProfile from "./Lap/pages/LabProfile";
+import RejectedLabReturns from './Lap/pages/RejectedLabReturns';
 import LibraryDashboard from "./Library/pages/LibraryDashboard";
-import LibraryBooks from "./Library/pages/LibraryBooks";
+import ApprovedLabClearances from "./Lap/pages/ApprovedLabClearances";
+import StudentListLab from "./Lap/pages/StudentListLab";
 import LibraryProfile from "./Library/pages/LibraryProfile";
 import FinanceDashboard from "./Finance/pages/FinanceDashboard";
 import FinancePayments from "./Finance/pages/FinancePayments";
 import FinanceProfile from "./Finance/pages/FinanceProfile";
+import ApprovedSubmissions from "./Library/pages/ApprovedSubmissions";
+import RejectedSubmissions from "./Library/pages/RejectedSubmissions";
+import StudentList from "./Library/pages/StudentList";
+import GroupDetails from "./Library/pages/GroupDetails";
+
+
+
+
+
+
 function App() {
   return (
     <Router>
@@ -39,11 +51,19 @@ function App() {
         <Route path="/faculty/profile" element={<FacultyProfile />} />
 
         <Route path="lab/dashboard" element={<LabDashboard/>}/>
+          <Route path="/lab/approved" element={<ApprovedLabClearances />} />
+          <Route path="/lab/rejected" element={<RejectedLabReturns />} />
+          <Route path="/lab/students" element={<StudentListLab />} />
+
         <Route path="lab/equipment" element={<LabEquipment/>}/>
         <Route path="lab/profile" element={<LabProfile/>}/>
 
         <Route path="library/dashboard" element={<LibraryDashboard/>}/>
-        <Route path="library/books" element={<LibraryBooks/>}/>
+        <Route path="/library/approved" element={<ApprovedSubmissions />} />
+        <Route path="/library/rejected" element={<RejectedSubmissions />} />
+        <Route path="/library/students" element={<StudentList />} />
+        <Route path="/library/group/:groupId" element={<GroupDetails />} /> {/* ✅ ADD THIS */}
+
         <Route path="library/profile" element={<LibraryProfile/>}/>
 
         <Route path="/finance/dashboard" element={<FinanceDashboard />} />

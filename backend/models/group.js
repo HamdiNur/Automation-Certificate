@@ -15,7 +15,7 @@ const groupSchema = new mongoose.Schema({
   phaseOneCleared: Boolean,
   overallStatus: {
     type: String,
-    enum: ['Pending', 'In Progress', 'Cleared', 'Rejected'],
+    enum: ['Pending', 'In Progress', 'approved', 'Rejected'],
     default: 'Pending'
   },
   clearanceProgress: {
