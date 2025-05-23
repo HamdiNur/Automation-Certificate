@@ -16,7 +16,8 @@ import {
   uploadNameCorrectionDoc,
   getFullyClearedStudents,
   getExaminationStats,
-  getPassFailSummary
+  getPassFailSummary,
+  revalidateGraduationEligibility
 } from '../controllers/examinationController.js';
 
 const router = express.Router();
@@ -40,9 +41,11 @@ const upload = multer({ storage });
 
 // ✅ Main routes
 router.get('/pending', getPendingExamination);
-router.post('/approve', approveExamination);
+router.post('/approved', approveExamination);
 router.post('/reject', rejectExamination);
 router.post('/upload-certificate', uploadCertificate);
+router.post('/revalidate-eligibility', revalidateGraduationEligibility);
+
 router.post('/schedule-appointment', scheduleAppointment);
 router.post('/check-in', markCheckIn);
 router.post('/confirm-name', confirmStudentName);

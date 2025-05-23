@@ -29,6 +29,7 @@ function LibrarySidebar() {
         <li><FaFolderOpen /> <Link to="/library/groups">Group Details</Link></li>
         <li><FaUsers /> <Link to="/library/students">Student List</Link></li>
         <li><FaUser /> <Link to="/library/profile">My Profile</Link></li>
+        
       </ul>
     </div>
   );

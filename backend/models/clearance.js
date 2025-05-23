@@ -10,7 +10,8 @@ const clearanceSchema = new mongoose.Schema({
 
   faculty: {
     status: { type: String, enum: ['Pending', 'Approved', 'Rejected'], default: 'Pending' },
-    clearedAt: Date
+    clearedAt: Date,
+    rejectionReason: { type: String, default: '' }  // ✅ Added this
   },
 
   library: {

@@ -3,6 +3,10 @@
 import Lab from '../models/lab.js';
 import Group from '../models/group.js';
 import Student from '../models/Student.js';
+import Clearance from '../models/Clearance.js';
+import Finance from '../models/finance.js';  // ✅ ADD THIS LINE
+import { generateFinanceForStudent } from '../utils/financeGenerator.js';
+
 
 // 🔹 Get all lab clearance records
 export const getAllLabClearances = async (req, res) => {
@@ -57,45 +61,141 @@ export const getPendingLab = async (req, res) => {
 };
 
 // 🔹 Approve lab clearance
-
 export const approveLab = async (req, res) => {
   try {
     const { groupId, approvedBy, returnedItems, issues } = req.body;
+
+    // 🔍 Find the lab record
     const record = await Lab.findOne({ groupId });
     if (!record) return res.status(404).json({ message: 'Lab record not found' });
 
+    // ✅ Approve lab
     record.status = 'Approved';
     record.clearedAt = new Date();
     record.approvedBy = approvedBy || 'System';
-
-    record.returnedItems = returnedItems || record.returnedItems || 'All items returned';
-    record.issues = issues || record.issues || 'None';
-
+    record.returnedItems = returnedItems || 'All items returned';
+    record.issues = issues || 'None';
     await record.save();
 
-    res.status(200).json({ message: 'Lab record approved', record });
+    // ✅ Update group clearance progress
+    await Group.updateOne(
+      { _id: groupId },
+      {
+        $set: {
+          'clearanceProgress.lab.status': 'Approved',
+          'clearanceProgress.lab.date': new Date()
+        }
+      }
+    );
+
+    // 🔄 Fetch group members (students)
+    const students = await Student.find({ groupId }).select('_id');
+
+    for (const student of students) {
+      // 🔁 Update or create clearance record
+      let clearance = await Clearance.findOne({ studentId: student._id });
+
+      if (!clearance) {
+        clearance = new Clearance({
+          studentId: student._id,
+          lab: {
+            status: 'Approved',
+            clearedAt: new Date()
+          }
+        });
+      } else {
+        clearance.lab.status = 'Approved';
+        clearance.lab.clearedAt = new Date();
+      }
+
+      await clearance.save();
+    }
+
+    // 🔍 Check if students are now eligible for finance phase
+    for (const student of students) {
+      const clearance = await Clearance.findOne({ studentId: student._id });
+
+      const allPhaseOneCleared =
+        clearance?.faculty?.status === 'Approved' &&
+        clearance?.library?.status === 'Approved' &&
+        clearance?.lab?.status === 'Approved';
+
+      if (allPhaseOneCleared) {
+        // 🧹 Delete any existing finance records
+        await Finance.deleteMany({ studentId: student._id });
+
+        // 🔁 Generate fresh finance records
+        await generateFinanceForStudent(student._id);
+
+        // ✅ Update finance phase in clearance
+        await Clearance.updateOne(
+          { studentId: student._id },
+          {
+            $set: {
+              'finance.eligibleForFinance': true,
+              'finance.status': 'Pending'
+            }
+          }
+        );
+
+        console.log(`✅ Finance regenerated for ${student._id}`);
+      }
+    }
+
+    res.status(200).json({ message: 'Lab approved and finance initialized for eligible students.' });
+
   } catch (err) {
-    res.status(500).json({ error: 'Approval failed', message: err.message });
+    console.error("❌ Lab approval error:", err);
+    res.status(500).json({ message: 'Approval failed', error: err.message });
   }
 };
-
+// 🔹 Reject lab clearance
 // 🔹 Reject lab clearance
 export const rejectLab = async (req, res) => {
   try {
     const { groupId, issues } = req.body;
+
+    // 1. Find the Lab record
     const record = await Lab.findOne({ groupId });
     if (!record) return res.status(404).json({ message: 'Lab record not found' });
 
+    // 2. Update Lab record
     record.status = 'Rejected';
     record.issues = issues || 'Unspecified';
+    record.clearedAt = null;
     await record.save();
 
-    res.status(200).json({ message: 'Lab record rejected', record });
+    // 3. Update Group progress
+    await Group.updateOne(
+      { _id: groupId },
+      {
+        $set: {
+          'clearanceProgress.lab.status': 'Rejected',
+          'clearanceProgress.lab.date': new Date()
+        }
+      }
+    );
+
+    // 4. Get students in the group
+    const students = await Student.find({ groupId }).select('_id');
+
+    // 5. Update each student's clearance record
+    for (const student of students) {
+      const clearance = await Clearance.findOne({ studentId: student._id });
+      if (clearance) {
+        clearance.lab.status = 'Rejected';
+        clearance.lab.clearedAt = null;
+        await clearance.save();
+        console.log(`❌ Lab clearance rejected for student: ${student._id}`);
+      }
+    }
+
+    res.status(200).json({ message: 'Lab record rejected and student clearances updated.' });
   } catch (err) {
+    console.error("❌ Lab rejection error:", err);
     res.status(500).json({ error: 'Rejection failed', message: err.message });
   }
 };
-
 
 // 🔹 Get counts of lab clearance statuses
 export const getLabStats = async (req, res) => {

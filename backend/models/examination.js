@@ -11,7 +11,7 @@ const examinationSchema = new mongoose.Schema({
     passportUploaded: { type: Boolean, default: false },
     otherDocsVerified: { type: Boolean, default: false }
   },
-  status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
+clearanceStatus: { type: String, enum: ['Pending', 'Approved', 'Rejected'], default: 'Pending' },
   remarks: String,
   rescheduleReason: { type: String },
 

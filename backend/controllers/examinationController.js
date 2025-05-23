@@ -6,7 +6,7 @@ import Student from '../models/Student.js';
 // 🔹 Get all pending examination records
 export const getPendingExamination = async (req, res) => {
   try {
-    const pending = await Examination.find({ status: 'Pending' }).populate('studentId');
+const pending = await Examination.find({ clearanceStatus: 'Pending' }).populate('studentId');
     res.status(200).json(pending);
   } catch (err) {
     res.status(500).json({ message: 'Failed to fetch pending examinations', error: err.message });
@@ -45,22 +45,24 @@ export const approveExamination = async (req, res) => {
     const autoAppointmentDate = new Date(now);
     autoAppointmentDate.setDate(now.getDate() + 8);
 
-    exam.status = 'Approved';
+    
+    exam.clearanceStatus = 'Approved'; // ✅ correct
     exam.clearedAt = now;
     exam.appointmentDate = autoAppointmentDate;
     exam.finalDecisionBy = approvedBy;
     await exam.save();
 
     await Clearance.updateOne(
-      { studentId },
-      {
-        $set: {
-          'examination.status': 'Approved',
-          'examination.clearedAt': now,
-          finalStatus: 'Cleared'
-        }
-      }
-    );
+  { studentId },
+  {
+    $set: {
+      'examination.status': 'Approved',
+      'examination.clearedAt': now,
+      finalStatus: 'Cleared'
+    }
+  }
+);
+
 
     res.status(200).json({
       message: 'Examination clearance approved. Appointment scheduled automatically.',
@@ -95,7 +97,7 @@ export const rejectExamination = async (req, res) => {
     const exam = await Examination.findOne({ studentId });
     if (!exam) return res.status(404).json({ message: 'Examination record not found.' });
 
-    exam.status = 'Rejected';
+    exam.clearanceStatus = 'Rejected'; // ✅
     exam.remarks = remarks;
     exam.clearedAt = null;
     await exam.save();
@@ -190,7 +192,7 @@ export const requestNameCorrection = async (req, res) => {
     const exam = await Examination.findOne({ studentId });
     if (!exam) return res.status(404).json({ message: 'Examination record not found' });
 
-    exam.nameCorrectionDoc = 'pending'; // temporary placeholder
+    exam.nameCorrectionDoc = 'Pending'; // temporary placeholder
     await exam.save();
 
     res.status(200).json({ message: 'Name correction request recorded' });
@@ -241,9 +243,9 @@ export const getFullyClearedStudents = async (req, res) => {
 //🔹 Dashboard Stats for Examination Officer
 export const getExaminationStats = async (req, res) => {
   try {
-    const pending = await Examination.countDocuments({ status: "Pending" });
+   const pending = await Examination.countDocuments({ clearanceStatus: "Pending" });
     const nameCorrections = await Examination.countDocuments({ nameCorrectionDoc: { $exists: true, $ne: null } });
-    const approved = await Examination.countDocuments({ status: "Approved" });
+ const approved = await Examination.countDocuments({ clearanceStatus: "Approved" });
 
     res.status(200).json({ pending, nameCorrections, approved });
   } catch (err) {
@@ -287,5 +289,41 @@ export const getPassFailSummary = async (req, res) => {
     res.status(200).json({ passed: passedCount, failed: failedCount });
   } catch (err) {
     res.status(500).json({ message: "Failed to fetch pass/fail summary", error: err.message });
+  }
+};
+
+
+// ✅ Revalidate after student re-exam and finance approval
+export const revalidateGraduationEligibility = async (req, res) => {
+  const { studentId } = req.body;
+
+  try {
+    const exam = await Examination.findOne({ studentId });
+    if (!exam) return res.status(404).json({ message: 'Examination record not found.' });
+
+    // Re-check course status
+    const failed = await CourseRecord.exists({ studentId, passed: false });
+    const passedAll = !failed;
+
+    // Re-check finance approval
+    const financeApproved = await Clearance.findOne({
+      studentId,
+      "finance.status": "Approved"
+    });
+
+    const canGraduate = passedAll && !!financeApproved;
+
+    exam.hasPassedAllCourses = passedAll;
+    exam.canGraduate = canGraduate;
+
+    await exam.save();
+
+    res.status(200).json({
+      message: "Graduation eligibility revalidated",
+      hasPassedAllCourses: passedAll,
+      canGraduate
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to revalidate eligibility.', error: err.message });
   }
 };

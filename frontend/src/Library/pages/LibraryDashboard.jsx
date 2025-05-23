@@ -9,6 +9,9 @@ function LibraryDashboard() {
   const [search, setSearch] = useState("");
   const [expandedRow, setExpandedRow] = useState(null);
 
+  // Track groupId currently approving to disable button & show loading text
+  const [loadingApproveId, setLoadingApproveId] = useState(null);
+
   const BASE_URL = "http://localhost:5000/api/library";
 
   const fetchStats = async () => {
@@ -16,9 +19,9 @@ function LibraryDashboard() {
       const res = await axios.get(`${BASE_URL}`);
       const all = res.data;
       const approved = all.filter(item => item.status === "Approved").length;
-      const pending = all.filter(item => item.status === "Pending").length;
+      const pendingCount = all.filter(item => item.status === "Pending").length;
       const rejected = all.filter(item => item.status === "Rejected").length;
-      setStats({ approved, pending, rejected });
+      setStats({ approved, pending: pendingCount, rejected });
     } catch (err) {
       console.error("Error fetching stats", err);
     }
@@ -42,15 +45,27 @@ function LibraryDashboard() {
 
   const handleApprove = async (groupId) => {
     try {
+      setLoadingApproveId(groupId); // disable button and show "Approving..."
       const staffId = localStorage.getItem("userId");
       await axios.post(`${BASE_URL}/approve`, {
         groupId,
         libraryStaffId: staffId
       });
-      fetchPending();
+
+      // Optimistically update UI:
+      setPending((prev) => prev.filter(item => item.groupId._id !== groupId));
+      setStats(prev => ({
+        ...prev,
+        approved: prev.approved + 1,
+        pending: prev.pending - 1
+      }));
+
       setExpandedRow(null);
     } catch (err) {
       console.error("Approval failed:", err.response?.data || err.message);
+      alert("Approval failed. Please try again.");
+    } finally {
+      setLoadingApproveId(null);
     }
   };
 
@@ -63,10 +78,13 @@ function LibraryDashboard() {
         groupId,
         remarks
       });
-      fetchPending();
+      // After reject, refresh list & stats
+      await fetchPending();
+      await fetchStats();
       setExpandedRow(null);
     } catch (err) {
       console.error("Rejection failed:", err);
+      alert("Rejection failed. Please try again.");
     }
   };
 
@@ -188,8 +206,9 @@ function LibraryDashboard() {
                               <button
                                 className="btn-approve"
                                 onClick={() => handleApprove(rec.groupId._id)}
+                                disabled={loadingApproveId === rec.groupId._id}
                               >
-                                ✅ Approve
+                                {loadingApproveId === rec.groupId._id ? "Approving..." : "✅ Approve"}
                               </button>
                               <button
                                 className="btn-reject"

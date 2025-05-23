@@ -30,7 +30,7 @@ const seedGroups = async () => {
 
     // Step 4: 10 random indexes to be Approved
     const indexesToApprove = new Set();
-    while (indexesToApprove.size < 10) {
+    while (indexesToApprove.size < 5) {
       indexesToApprove.add(Math.floor(Math.random() * totalGroups));
     }
 

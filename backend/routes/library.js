@@ -9,12 +9,15 @@ import {
   getPendingLibrary,
   approveLibrary,
   rejectLibrary,
+  // fixLibraryFlags,
   
 
 } from '../controllers/libraryController.js';
 
 const router = express.Router();
 router.get('/pending', getPendingLibrary);
+// router.post('/fix-flags', fixLibraryFlags); // 🔧 Manual fixer route
+
 router.post('/approve', approveLibrary);
 router.post('/reject', rejectLibrary);
 router.get('/stats', getLibraryStats); // ✅ Add this line

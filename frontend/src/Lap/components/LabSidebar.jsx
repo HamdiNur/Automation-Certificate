@@ -46,6 +46,7 @@ function LabSidebar() {
           <FaUser />
           <Link to="/lab/profile">Profile</Link>
         </li>
+        
       </ul>
     </div>
   );
