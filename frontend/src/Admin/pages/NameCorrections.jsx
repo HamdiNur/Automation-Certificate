@@ -1,51 +1,52 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Sidebar from "../components/Sidebar";
 import "./Dashboard.css";
 
-const sampleRequests = [
-  {
-    id: 1,
-    studentId: "STD001",
-    oldName: "Amina Yusuf Ali",
-    requestedName: {
-      firstName: "Amina",
-      middleName: "Yusuf",
-      lastName: "Mohamed"
-    },
-    documentUrl: "/documents/passport_amina.jpg", // use public folder or fake path
-    status: "Pending",
-    submittedAt: "2025-05-12"
-  },
-  {
-    id: 2,
-    studentId: "STD002",
-    oldName: "Mohamed Abdi",
-    requestedName: {
-      firstName: "Mohamed",
-      middleName: "Abdi",
-      lastName: "Farah"
-    },
-    documentUrl: "/documents/passport_mohamed.jpg",
-    status: "Pending",
-    submittedAt: "2025-05-13"
-  }
-];
-
 function NameCorrections() {
-  const [requests, setRequests] = useState(sampleRequests);
+  const [requests, setRequests] = useState([]);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [remarks, setRemarks] = useState("");
-  const [actionType, setActionType] = useState(""); // approve or reject
+  const [actionType, setActionType] = useState("");
 
-  const handleDecision = (id, status) => {
-    const updated = requests.map((r) =>
-      r.id === id ? { ...r, status, remarks: status === "Rejected" ? remarks : "" } : r
-    );
-    setRequests(updated);
-    setShowModal(false);
-    setRemarks("");
-    setSelectedRequest(null);
+  // ✅ Fetch name correction requests on load
+  useEffect(() => {
+    fetch("http://localhost:5000/api/students?nameCorrectionRequested=true")
+      .then((res) => res.json())
+      .then((data) => setRequests(data))
+      .catch((err) => console.error("Failed to fetch name corrections", err));
+  }, []);
+
+  // ✅ Approve or reject logic
+  const handleDecision = async (studentId, status) => {
+    try {
+      const url = `http://localhost:5000/api/students/${status === "Approved" ? "approve-name" : "reject-name"}/${studentId}`;
+      const res = await fetch(url, { method: "PUT" });
+
+      if (res.ok) {
+        setRequests((prev) =>
+          prev.map((r) =>
+            r._id === studentId
+              ? { ...r, nameVerified: status === "Approved", nameCorrectionRequested: false }
+              : r
+          )
+        );
+        setShowModal(false);
+        setRemarks("");
+        setSelectedRequest(null);
+      } else {
+        const errData = await res.json();
+        console.error("Failed:", errData.message || "Unknown error");
+      }
+    } catch (err) {
+      console.error("Error processing request:", err);
+    }
+  };
+
+  const formatRequestedName = (name) => {
+    if (!name) return <i style={{ color: "#888" }}>N/A</i>;
+    if (typeof name === "string") return name;
+    return `${name.firstName || ""} ${name.middleName || ""} ${name.lastName || ""}`.trim();
   };
 
   return (
@@ -58,7 +59,7 @@ function NameCorrections() {
           <thead>
             <tr>
               <th>Student ID</th>
-              <th>Old Name</th>
+              <th>Student Name</th>
               <th>Requested Name</th>
               <th>Document</th>
               <th>Status</th>
@@ -66,23 +67,34 @@ function NameCorrections() {
             </tr>
           </thead>
           <tbody>
-            {requests.map((req) => (
-              <tr key={req.id}>
+            {requests.map((req, index) => (
+              <tr key={req._id || index}>
                 <td>{req.studentId}</td>
-                <td>{req.oldName}</td>
+                <td>{req.fullName}</td>
+                <td>{formatRequestedName(req.requestedName)}</td>
                 <td>
-                  {req.requestedName.firstName} {req.requestedName.middleName} {req.requestedName.lastName}
+                  {req.correctionUploadUrl ? (
+                    <a
+                      href={`http://localhost:5000/${req.correctionUploadUrl}`}
+                      download
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      View Document
+                    </a>
+                  ) : (
+                    <i style={{ color: "#999" }}>No document</i>
+                  )}
                 </td>
                 <td>
-                  <a href={req.documentUrl} target="_blank" rel="noopener noreferrer">
-                    View Document
-                  </a>
+                  <span className={`badge ${req.nameVerified ? "approved" : "pending"}`}>
+                    {req.nameVerified ? "Approved" : "Pending"}
+                  </span>
                 </td>
                 <td>
-                  <span className={`badge ${req.status.toLowerCase()}`}>{req.status}</span>
-                </td>
-                <td>
-                  {req.status === "Pending" ? (
+                  {req.nameVerified ? (
+                    <span style={{ color: "#aaa" }}>—</span>
+                  ) : (
                     <>
                       <button
                         className="btn-approve"
@@ -105,8 +117,6 @@ function NameCorrections() {
                         Reject
                       </button>
                     </>
-                  ) : (
-                    <span>—</span>
                   )}
                 </td>
               </tr>
@@ -114,45 +124,43 @@ function NameCorrections() {
           </tbody>
         </table>
 
-        {/* ✅ Approve/Reject Modal */}
+        {/* ✅ Modal for confirmation */}
         {showModal && selectedRequest && (
           <div className="modal-overlay">
             <div className="modal">
-              <h3>
-                {actionType === "Approved" ? "Approve" : "Reject"} Name Correction
-              </h3>
+              <h3>{actionType} Name Correction</h3>
               <p>
-                <strong>Old Name:</strong> {selectedRequest.oldName}<br />
-                <strong>Requested Name:</strong>{" "}
-                {selectedRequest.requestedName.firstName}{" "}
-                {selectedRequest.requestedName.middleName}{" "}
-                {selectedRequest.requestedName.lastName}
-              </p>
-              <p>
+                <strong>Student:</strong> {selectedRequest.fullName} <br />
+                <strong>Requested Name:</strong> {formatRequestedName(selectedRequest.requestedName)} <br />
                 <strong>Document:</strong>{" "}
-                <a
-                  href={selectedRequest.documentUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  View Document
-                </a>
+                {selectedRequest.correctionUploadUrl ? (
+                  <a
+                    href={`http://localhost:5000/${selectedRequest.correctionUploadUrl}`}
+                    download
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    View Document
+                  </a>
+                ) : (
+                  <i style={{ color: "#888" }}>No document</i>
+                )}
               </p>
 
               {actionType === "Rejected" && (
                 <textarea
-                  placeholder="Enter reason for rejection (optional)"
+                  placeholder="Enter rejection reason (optional)"
                   rows={4}
                   value={remarks}
                   onChange={(e) => setRemarks(e.target.value)}
                   style={{ width: "100%", marginTop: "10px", padding: "10px" }}
-                ></textarea>
+                />
               )}
 
               <div className="modal-buttons" style={{ marginTop: "20px" }}>
                 <button
                   className="btn-confirm"
-                  onClick={() => handleDecision(selectedRequest.id, actionType)}
+                  onClick={() => handleDecision(selectedRequest._id, actionType)}
                 >
                   Confirm {actionType}
                 </button>

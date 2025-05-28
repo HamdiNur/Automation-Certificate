@@ -38,20 +38,36 @@ export const rescheduleAppointment = async (req, res) => {
 
 export const checkInAppointment = async (req, res) => {
   const { studentId } = req.body;
+  const adminId = req.user?._id; // ✅ Must come from authentication middleware
+
   try {
     const appointment = await Appointment.findOne({ studentId });
-    if (!appointment) return res.status(404).json({ message: 'Not found.' });
+    if (!appointment) {
+      return res.status(404).json({ message: 'Appointment not found.' });
+    }
+
+    const today = new Date();
+    const appointmentDate = new Date(appointment.appointmentDate);
+
+    if (today.toDateString() !== appointmentDate.toDateString()) {
+      return res.status(400).json({
+        message: 'You cannot check in before your appointment date.'
+      });
+    }
 
     appointment.checkedIn = true;
-    appointment.attendedAt = new Date();
+    appointment.attendedAt = today;
     appointment.status = 'completed';
+    appointment.checkedInBy = adminId; // ✅ Save who checked them in
+
     await appointment.save();
 
-    res.status(200).json({ message: 'Checked in.', appointment });
+    res.status(200).json({ message: 'Check-in successful.', appointment });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
+
 
 export const getAppointmentByStudent = async (req, res) => {
   const { studentId } = req.params;
@@ -66,7 +82,10 @@ export const getAppointmentByStudent = async (req, res) => {
 
 export const getAllAppointments = async (req, res) => {
   try {
-    const list = await Appointment.find().populate('studentId');
+    const list = await Appointment.find()
+      .populate('studentId')
+      .populate('checkedInBy', 'fullName'); // ✅ Populate admin name
+
     res.status(200).json(list);
   } catch (err) {
     res.status(500).json({ error: err.message });

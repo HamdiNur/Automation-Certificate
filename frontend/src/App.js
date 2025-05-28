@@ -7,6 +7,9 @@ import Requests from "./Admin/pages/Request";
 import Login from "./Admin/pages/Login";
 import StudentDetails from "./Admin/pages/StudentDetails";
 import Appointments from "./Admin/pages/Appointments";
+import CoursesPage from "./Admin/pages/CoursesPage"; // 
+
+
 import Users from "./Admin/pages/Users";
 import Profile from "./Admin/pages/Profile";
 import NameCorrections from "./Admin/pages/NameCorrections";
@@ -38,6 +41,7 @@ import FinancePayments from "./Finance/pages/FinancePayments";
 import FinanceProfile from "./Finance/pages/FinanceProfile";
 import PendingApprovals from "./Finance/pages/PendingApprovals";
 import GraduationPaid from "./Finance/pages/GraduationPaid";
+import StudentReexamDashboardWrapper from "./Admin/pages/StudentReexamDashboardWrapper";
 
 function App() {
   return (
@@ -50,6 +54,10 @@ function App() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/requests" element={<Requests />} />
         <Route path="/students/:id" element={<StudentDetails />} />
+        <Route path="/courses" element={<CoursesPage />} />
+<Route path="/re-exam/:studentId" element={<StudentReexamDashboardWrapper />} />
+
+
         <Route path="/appointments" element={<Appointments />} />
         <Route path="/users" element={<Users />} />
         <Route path="/profile" element={<Profile />} />

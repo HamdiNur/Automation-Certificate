@@ -9,6 +9,7 @@ const appointmentSchema = new mongoose.Schema({
     status: { type: String, enum: ['scheduled', 'rescheduled', 'completed', 'missed'], default: 'scheduled' },
     checkedIn: { type: Boolean, default: false },
     attendedAt: Date,
+    checkedInBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     createdAt: { type: Date, default: Date.now },
     updatedAt: { type: Date, default: Date.now }
   });

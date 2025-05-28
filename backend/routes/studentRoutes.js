@@ -10,7 +10,10 @@ import {
   getStudentById,
   getEligibleForNameCorrection,
   markNameCorrectionRequest,
-  uploadCorrectionFile
+  uploadCorrectionFile,
+  approveNameCorrection,
+  rejectNameCorrection,
+  forwardToAdmission
 } from '../controllers/studentController.js';
 
 const router = express.Router();
@@ -39,5 +42,11 @@ router.get('/:id', getStudentById);
 router.get('/eligibility/name-correction', getEligibleForNameCorrection);
 router.post('/request-name-correction-toggle', markNameCorrectionRequest);
 router.post('/upload-correction-doc', upload.single('document'), uploadCorrectionFile);
+
+// ✅ Name Correction Admin Routes (for admin use)
+router.put('/approve-name/:studentId', approveNameCorrection);
+router.put('/reject-name/:studentId', rejectNameCorrection);
+router.put('/forward-name/:studentId', forwardToAdmission);
+
 
 export default router;

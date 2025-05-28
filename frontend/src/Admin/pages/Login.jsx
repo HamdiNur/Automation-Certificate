@@ -31,6 +31,7 @@ const Login = () => {
       localStorage.setItem("token", token);
       localStorage.setItem("role", user.role);
       localStorage.setItem("userId", user.userId);
+      localStorage.setItem("userMongoId", user.id); // ✅ corrected
       localStorage.setItem("username", user.username);
 
       // ✅ Role-based redirect

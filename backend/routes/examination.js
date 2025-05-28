@@ -8,8 +8,6 @@ import {
   approveExamination,
   rejectExamination,
   uploadCertificate,
-  scheduleAppointment,
-  markCheckIn,
   confirmStudentName,
   getFailedCourses,
   requestNameCorrection,
@@ -17,7 +15,9 @@ import {
   getFullyClearedStudents,
   getExaminationStats,
   getPassFailSummary,
-  revalidateGraduationEligibility
+  revalidateGraduationEligibility,
+  getEligibleStudentsSummary,
+  checkCertificateEligibility
 } from '../controllers/examinationController.js';
 
 const router = express.Router();
@@ -46,9 +46,9 @@ router.post('/reject', rejectExamination);
 router.post('/upload-certificate', uploadCertificate);
 router.post('/revalidate-eligibility', revalidateGraduationEligibility);
 
-router.post('/schedule-appointment', scheduleAppointment);
-router.post('/check-in', markCheckIn);
 router.post('/confirm-name', confirmStudentName);
+router.get('/eligibility-summary', getEligibleStudentsSummary);
+
 router.get('/reexam/:studentId', getFailedCourses);
 router.get('/cleared-students', getFullyClearedStudents);
 router.get("/pass-fail-summary", getPassFailSummary);
@@ -58,5 +58,7 @@ router.get("/stats", getExaminationStats);
 // 🆕 Name Correction Uploads
 router.post('/request-name-correction', requestNameCorrection);
 router.post('/upload-passport', upload.single('document'), uploadNameCorrectionDoc);
+// ✅ Eligibility route for mobile app
+router.get('/status/:studentId', checkCertificateEligibility);
 
 export default router;

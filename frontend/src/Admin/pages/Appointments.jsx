@@ -1,34 +1,46 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Sidebar from "../components/Sidebar";
+import axios from "axios";
 import "./Dashboard.css";
 
-const sampleAppointments = [
-  { id: 1, student: "Amina Yusuf", date: "2025-06-01", status: "Scheduled" },
-  { id: 2, student: "Mohamed Ali", date: "2025-06-02", status: "Scheduled" },
-  { id: 3, student: "Fatima Ahmed", date: "2025-06-01", status: "Attended" },
-  { id: 4, student: "Ahmed Ibrahim", date: "2025-06-03", status: "Missed" },
-];
-
 function Appointments() {
-  const [appointments, setAppointments] = useState(sampleAppointments);
+  const [appointments, setAppointments] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
 
-  const handleCheckIn = (id) => {
-    const updated = appointments.map((a) =>
-      a.id === id ? { ...a, status: "Attended" } : a
-    );
-    setAppointments(updated);
+  const fetchAppointments = async () => {
+    try {
+      const res = await axios.get("http://localhost:5000/api/appointments");
+      setAppointments(res.data);
+    } catch (err) {
+      console.error("❌ Failed to load appointments", err.message);
+    }
   };
 
+  const handleCheckIn = async (studentId) => {
+    try {
+      await axios.post("http://localhost:5000/api/appointments/check-in", {
+        studentId,
+      });
+      alert("✅ Checked in!");
+      fetchAppointments();
+    } catch (err) {
+      alert("❌ Failed to check in.");
+    }
+  };
+
+  useEffect(() => {
+    fetchAppointments();
+  }, []);
+
   const filtered = appointments.filter((a) =>
-    a.student.toLowerCase().includes(searchTerm.toLowerCase())
+    a.studentId?.fullName?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
     <div className="dashboard-wrapper">
       <Sidebar />
       <div className="dashboard-main">
-        <h2>Certificate Appointments</h2>
+        <h2>📅 Certificate Appointments</h2>
 
         <div className="filter-bar">
           <input
@@ -42,39 +54,46 @@ function Appointments() {
         <table>
           <thead>
             <tr>
-              <th>Student</th>
-              <th>Date</th>
+              <th>No.</th>
+              <th>Student Name</th>
+              <th>Student ID</th>
+              <th>Appointment Date</th>
               <th>Status</th>
-              <th>Actions</th>
+              <th>Checked In</th>
+              <th>Checked In By</th> 
+              <th>Rescheduled</th>
+              <th>Action</th>
             </tr>
           </thead>
           <tbody>
-            {filtered.map((a) => (
-              <tr key={a.id}>
-                <td>{a.student}</td>
-                <td>{a.date}</td>
+            {filtered.map((a, index) => (
+              <tr key={a._id}>
+                <td>{index + 1}</td>
+                <td>{a.studentId?.fullName}</td>
+                <td>{a.studentId?.studentId}</td>
+                <td>{new Date(a.appointmentDate).toLocaleDateString()}</td>
+                <td>{a.status}</td>
+                <td>{a.checkedIn ? "✅" : "❌"}</td>
+                  <td>{a.checkedInBy ? a.checkedInBy.fullName : "—"}</td> {/* ✅ New */}
+
+                <td>{a.rescheduled ? "Yes" : "No"}</td>
                 <td>
-                  <span className={`badge ${a.status.toLowerCase()}`}>
-                    {a.status}
-                  </span>
-                </td>
-                <td>
-                  {a.status === "Scheduled" ? (
+                  {a.status === "scheduled" && !a.checkedIn ? (
                     <button
-                      className="btn-approve"
-                      onClick={() => handleCheckIn(a.id)}
+                      className="btn-check"
+                      onClick={() => handleCheckIn(a.studentId._id)}
                     >
-                      Mark as Checked In
+                      ✅ Check-In
                     </button>
                   ) : (
-                    <span>—</span>
+                    <span style={{ color: "#999" }}>—</span>
                   )}
                 </td>
               </tr>
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan="4" style={{ textAlign: "center", color: "#777" }}>
+                <td colSpan="8" style={{ textAlign: "center", color: "#777" }}>
                   No appointments found.
                 </td>
               </tr>

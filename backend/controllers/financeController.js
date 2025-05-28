@@ -3,6 +3,12 @@
 import Finance from '../models/finance.js';
 import Student from '../models/Student.js';
 import Clearance from '../models/Clearance.js';
+import Examination from '../models/examination.js'; // also ensure this is present
+import CourseRecord from '../models/course.js';
+import { revalidateGraduationEligibility } from './examinationController.js'; // adjust path if needed
+
+
+
 
 // ✅ 1. Fetch full finance summary for a student
 export const getStudentFinanceSummary = async (req, res) => {
@@ -139,7 +145,7 @@ export const approveFinance = async (req, res) => {
 
     await graduationPayment.save();
 
-    // 5. Update clearance
+    // 5. Update finance section in Clearance
     await Clearance.updateOne(
       { studentId: student._id },
       {
@@ -150,13 +156,45 @@ export const approveFinance = async (req, res) => {
       }
     );
 
-    res.status(200).json({ message: '✅ Finance approved and graduation payment recorded.' });
+    // 6. Create or update examination record (✅ always insert)
+    const failed = await CourseRecord.exists({ studentId: student._id, passed: false });
+    const hasPassedAllCourses = !failed;
+    const canGraduate = hasPassedAllCourses; // still false if failed
+
+    const existingExam = await Examination.findOne({ studentId: student._id });
+    if (!existingExam) {
+      await Examination.create({
+        studentId: student._id,
+        hasPassedAllCourses,
+        canGraduate,
+        clearanceStatus: 'Pending'
+      });
+      console.log(`📘 Examination record created for ${student.studentId}`);
+    } else {
+      // Optional: update exam record if it already exists
+      existingExam.hasPassedAllCourses = hasPassedAllCourses;
+      existingExam.canGraduate = canGraduate;
+      await existingExam.save();
+      console.log(`📘 Examination record updated for ${student.studentId}`);
+    }
+        // ✅ 7. Call revalidateGraduationEligibility()
+    await revalidateGraduationEligibility(
+      { body: { studentId: student._id.toString() } },
+      { status: () => ({ json: () => {} }) } // fake res
+    );
+
+
+
+    res.status(200).json({
+      message: '✅ Finance approved, payment recorded, and examination initialized.'
+    });
 
   } catch (err) {
     console.error('❌ Finance approval failed:', err);
     res.status(500).json({ message: 'Finance approval failed', error: err.message });
   }
 };
+
 
 
 export const rejectFinance = async (req, res) => {

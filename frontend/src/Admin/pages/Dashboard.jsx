@@ -1,65 +1,15 @@
-// import React from "react";
-// import Sidebar from "../components/Sidebar";
-// import "./Dashboard.css";
-
-// const clearances = [
-//   { student: "Kathryn Murphy", type: "Group", dept: "Faculty", status: "Pending", date: "8/15/2023" },
-//   { student: "Eleanor Pena", type: "Individual", dept: "Library", status: "Cleared", date: "5/23/2023" },
-//   { student: "Savannah Nguyen", type: "Group", dept: "Finance", status: "Scheduled", date: "5/31/2023" },
-//   { student: "Cody Fischer", type: "Group", dept: "Cleared", status: "Scheduled", date: "5/23/2023" },
-//   { student: "Floyd Miles", type: "Group", dept: "Group", status: "Pending", date: "5/21/2023" },
-//   { student: "Theressa Webb", type: "Individual", dept: "Finance", status: "Cleared", date: "6/01/2023" },
-// ];
-
-// function Dashboard() {
-//   return (
-//     <div className="dashboard-wrapper">
-//       <Sidebar />
-//       <div className="dashboard-main">
-//         <div className="cards">
-//           <div className="card blue">5 <span>Pending</span></div>
-//           <div className="card green">12 <span>Cleared</span></div>
-//           <div className="card yellow">3 <span>Scheduled</span></div>
-//         </div>
-
-//         <h2>Clearances</h2>
-//         <table>
-//           <thead>
-//             <tr>
-//               <th>Student</th>
-//               <th>Group / Individual</th>
-//               <th>Department</th>
-//               <th>Status</th>
-//               <th>Date</th>
-//             </tr>
-//           </thead>
-//           <tbody>
-//             {clearances.map((item, index) => (
-//               <tr key={index}>
-//                 <td>{item.student}</td>
-//                 <td>{item.type}</td>
-//                 <td>{item.dept}</td>
-//                 <td><span className={`badge ${item.status.toLowerCase()}`}>{item.status}</span></td>
-//                 <td>{item.date}</td>
-//               </tr>
-//             ))}
-//           </tbody>
-//         </table>
-//       </div>
-//     </div>
-//   );
-// }
-
-// export default Dashboard;
-
-
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import Sidebar from "../components/Sidebar";
 import "./Dashboard.css";
 
 function Dashboard() {
-  const [stats, setStats] = useState({ pending: 0, nameCorrections: 0, approved: 0 });
+  const [stats, setStats] = useState({
+    pending: 0,
+    nameCorrections: 0,
+    approved: 0,
+  });
+
   const [students, setStudents] = useState([]);
 
   useEffect(() => {
@@ -86,29 +36,42 @@ function Dashboard() {
   };
 
   const handleApprove = async (studentId) => {
-    await axios.post("http://localhost:5000/api/examination/approve", {
-      studentId,
-      approvedBy: "admin-id",
-    });
-    fetchStats();
-    fetchPending();
+    const approvedBy = localStorage.getItem("userMongoId"); // ✅ use actual MongoDB _id
+    if (!approvedBy) {
+      alert("Approver ID not found in local storage.");
+      return;
+    }
+
+    try {
+      await axios.post("http://localhost:5000/api/examination/approved", {
+        studentId,
+        approvedBy,
+      });
+      fetchStats();
+      fetchPending();
+    } catch (err) {
+      alert("Approval failed: " + (err.response?.data?.message || err.message));
+    }
   };
 
   const handleReject = async (studentId) => {
-    await axios.post("http://localhost:5000/api/examination/reject", {
-      studentId,
-      remarks: "Incomplete clearance requirements",
-    });
-    fetchStats();
-    fetchPending();
+    try {
+      await axios.post("http://localhost:5000/api/examination/reject", {
+        studentId,
+        remarks: "Incomplete clearance requirements",
+      });
+      fetchStats();
+      fetchPending();
+    } catch (err) {
+      alert("Rejection failed: " + (err.response?.data?.message || err.message));
+    }
   };
 
   return (
     <div className="dashboard-wrapper">
       <Sidebar />
       <div className="dashboard-main">
-
-        {/* Stats */}
+        {/* Stat Cards */}
         <div className="cards">
           <div className="card blue">
             <div>
@@ -130,7 +93,7 @@ function Dashboard() {
           </div>
         </div>
 
-        {/* Table */}
+        {/* Pending Table */}
         <table>
           <thead>
             <tr>
@@ -149,8 +112,8 @@ function Dashboard() {
           <tbody>
             {students.map((item, index) => {
               const s = item.studentId || {};
-              const docsOk =
-                item.requiredDocs?.passportUploaded && item.requiredDocs?.otherDocsVerified;
+              const docsOk = item.requiredDocs?.passportUploaded && s.nameVerified;
+              const status = item.clearanceStatus;
 
               return (
                 <tr key={index}>
@@ -161,22 +124,22 @@ function Dashboard() {
                   <td>{item.hasPassedAllCourses ? "✅" : "❌"}</td>
                   <td>{item.canGraduate ? "✅" : "❌"}</td>
                   <td>{item.nameCorrectionDoc ? "✅" : "❌"}</td>
-                  <td>{docsOk ? "✅ Verified" : "❌ Incomplete"}</td>
                   <td>
-                    <span
-                      className={`badge ${
-                        item.status === "Approved"
-                          ? "approved"
-                          : item.status === "Rejected"
-                          ? "rejected"
-                          : "pending"
-                      }`}
-                    >
-                      {item.status}
-                    </span>
+                    {docsOk ? (
+                      <span className="badge badge-success">✅ Verified</span>
+                    ) : (
+                      <span className="badge badge-danger">❌ Incomplete</span>
+                    )}
                   </td>
                   <td>
-                    {item.status === "Pending" && (
+                    {!item.hasPassedAllCourses ? (
+                      <span className="badge badge-danger">Re-exam Required</span>
+                    ) : (
+                      <span className={`badge ${status.toLowerCase()}`}>{status}</span>
+                    )}
+                  </td>
+                  <td>
+                    {status === "Pending" ? (
                       <>
                         <button className="btn-approve" onClick={() => handleApprove(s._id)}>
                           Approve
@@ -185,8 +148,7 @@ function Dashboard() {
                           Reject
                         </button>
                       </>
-                    )}
-                    {item.status === "Approved" && (
+                    ) : (
                       <button className="btn-view">View Certificate</button>
                     )}
                   </td>

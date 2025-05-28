@@ -2,6 +2,8 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
+import path from 'path';
+
 import { connectDB } from './config/db.js';
 
 // Load environment variables
@@ -35,6 +37,7 @@ import notificationRoutes from './routes/notification.js';
 import clearanceRoutes from './routes/clearance.js';
 import courseRoutes from './routes/course.js';
 
+
 // Route Registration
 app.use('/api/users', userRouter);
 app.use('/api/students', studentRoutes);
@@ -53,6 +56,9 @@ app.use('/api/courses', courseRoutes);
 app.get('/', (req, res) => {
   res.send('✅ API is working.');
 });
+
+// ✅ Serve uploaded documents (e.g., correction PDFs)
+app.use('/uploads', express.static(path.resolve('uploads')));
 
 // Start Server
 app.listen(port, () => {

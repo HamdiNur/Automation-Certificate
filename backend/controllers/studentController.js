@@ -6,6 +6,8 @@ import bcrypt from 'bcryptjs';
 import Group from '../models/group.js'; // ✅ Add this
 import CourseRecord from '../models/course.js';
 import Clearance from '../models/Clearance.js';
+import Examination from '../models/examination.js'; // or the correct path to your Examination model
+
 
 import Finance from '../models/finance.js';
 
@@ -22,7 +24,10 @@ export const registerStudent = async (req, res) => {
       yearOfAdmission,
       phone,
       motherName,
-      gender
+      gender,
+      mode,
+      status,
+      role
     } = req.body;
 
     const rawPassword = Math.floor(100000 + Math.random() * 900000).toString();
@@ -45,7 +50,10 @@ export const registerStudent = async (req, res) => {
       hashedPassword,
       phone,
       motherName,
-      gender
+      gender,
+      mode,
+      status,
+      role
     });
 
     res.status(201).json({
@@ -55,24 +63,25 @@ export const registerStudent = async (req, res) => {
         fullName: newStudent.fullName,
         gender: newStudent.gender,
         motherName: newStudent.motherName,
-
         program: newStudent.program,
         faculty: newStudent.faculty,
         yearOfAdmission: newStudent.yearOfAdmission,
         yearOfGraduation: newStudent.yearOfGraduation,
-
         email: newStudent.email,
         phone: newStudent.phone,
-        password: newStudent.rawPassword, // only return in registration
-
+        password: newStudent.rawPassword,
         clearanceStatus: newStudent.clearanceStatus,
-        profilePicture: newStudent.profilePicture
+        profilePicture: newStudent.profilePicture,
+        mode: newStudent.mode,
+        status: newStudent.status,
+        role: newStudent.role
       }
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
+
 
 // ✅ LOGIN STUDENT
 export const loginStudent = async (req, res) => {
@@ -100,28 +109,28 @@ export const loginStudent = async (req, res) => {
       { expiresIn: '1d' }
     );
 
-    res.status(200).json({
-      message: 'Login successful',
-      token,
-      student: {
-        id: student._id,
-        studentId: student.studentId,
-        fullName: student.fullName,
-        gender: student.gender,
-        motherName: student.motherName,
-
-        program: student.program,
-        faculty: student.faculty,
-        yearOfAdmission: student.yearOfAdmission,
-        yearOfGraduation: student.yearOfGraduation,
-
-        email: student.email,
-        phone: student.phone,
-
-        clearanceStatus: student.clearanceStatus,
-        profilePicture: student.profilePicture
-      }
-    });
+   res.status(200).json({
+  message: 'Login successful',
+  token,
+  student: {
+    id: student._id,
+    studentId: student.studentId,
+    fullName: student.fullName,
+    gender: student.gender,
+    motherName: student.motherName,
+    program: student.program,
+    faculty: student.faculty,
+    yearOfAdmission: student.yearOfAdmission,
+    yearOfGraduation: student.yearOfGraduation,
+    email: student.email,
+    phone: student.phone,
+    clearanceStatus: student.clearanceStatus,
+    profilePicture: student.profilePicture,
+    mode: student.mode,        // NEW
+    status: student.status,    // NEW
+    role: student.role         // NEW
+  }
+});
 
   } catch (error) {
     console.error('Login Error:', error.message);
@@ -131,13 +140,22 @@ export const loginStudent = async (req, res) => {
 
 export const getAllStudents = async (req, res) => {
   try {
-    const students = await Student.find();
+    const query = {};
+
+    // ✅ Filter: only students who properly requested name correction
+    if (req.query.nameCorrectionRequested === "true") {
+      query.nameCorrectionRequested = true;
+      query.nameCorrectionEligible = true;
+    }
+
+    const students = await Student.find(query);
     res.status(200).json(students);
   } catch (err) {
-    res.status(500).json({ message: 'Failed to fetch students', error: err.message });
+    res.status(500).json({ message: "Failed to fetch students", error: err.message });
   }
 };
 
+// ✅ Add getSudentById
 export const getStudentById = async (req, res) => {
   try {
     const student = await Student.findById(req.params.id);
@@ -147,6 +165,7 @@ export const getStudentById = async (req, res) => {
     res.status(500).json({ message: 'Failed to fetch student', error: err.message });
   }
 };
+
 
 
 
@@ -265,7 +284,7 @@ export const markNameCorrectionRequest = async (req, res) => {
 
 // Upload file (passport/school cert) for name correction
 export const uploadCorrectionFile = async (req, res) => {
-  const { studentId } = req.body;
+  const { studentId, requestedName } = req.body;
   const file = req.file;
 
   if (!file) return res.status(400).json({ message: 'No file uploaded' });
@@ -273,11 +292,89 @@ export const uploadCorrectionFile = async (req, res) => {
   try {
     await Student.findByIdAndUpdate(studentId, {
       correctionUploadUrl: file.path,
-      nameVerified: false
+      requestedName,
+      nameVerified: false,
+      nameCorrectionEligible: true // ✅ Add this line
     });
+    await Examination.findOneAndUpdate(
+  { studentId },
+  {
+    nameCorrectionDoc: file.path,
+    "requiredDocs.passportUploaded": true
+  }
+);
 
-    res.status(200).json({ message: 'Correction document uploaded successfully', path: file.path });
+    res.status(200).json({
+      message: 'Correction document uploaded successfully',
+      path: file.path
+    });
   } catch (err) {
     res.status(500).json({ message: 'Failed to upload correction doc', error: err.message });
+  }
+};
+
+
+//✅ Approve name correction
+export const approveNameCorrection = async (req, res) => {
+  const { studentId } = req.params;
+
+  try {
+    const student = await Student.findById(studentId);
+    if (!student) return res.status(404).json({ message: 'Student not found' });
+
+    if (!student.correctionUploadUrl) {
+      return res.status(400).json({ message: 'No document uploaded' });
+    }
+
+    await Student.findByIdAndUpdate(studentId, {
+      nameVerified: true,
+      sentToAdmission: false // Not yet sent to admissions
+    });
+
+    res.status(200).json({ message: '✅ Name correction approved and verified' });
+  } catch (err) {
+    res.status(500).json({ message: 'Approval failed', error: err.message });
+  }
+};
+
+// ❌ Reject name correction
+export const rejectNameCorrection = async (req, res) => {
+  const { studentId } = req.params;
+
+  try {
+    const student = await Student.findById(studentId);
+    if (!student) return res.status(404).json({ message: 'Student not found' });
+
+    await Student.findByIdAndUpdate(studentId, {
+      nameCorrectionRequested: false,
+      requestedName: '',
+      correctionUploadUrl: '',
+      nameVerified: false,
+      sentToAdmission: false
+    });
+
+    res.status(200).json({ message: '❌ Name correction request rejected and cleared' });
+  } catch (err) {
+    res.status(500).json({ message: 'Rejection failed', error: err.message });
+  }
+};
+
+// ✅ Mark as sent to admissions
+export const forwardToAdmission = async (req, res) => {
+  const { studentId } = req.params;
+
+  try {
+    const student = await Student.findById(studentId);
+    if (!student || !student.nameVerified) {
+      return res.status(400).json({ message: 'Student not verified for name change' });
+    }
+
+    await Student.findByIdAndUpdate(studentId, {
+      sentToAdmission: true
+    });
+
+    res.status(200).json({ message: '📨 Name correction forwarded to Admission Office' });
+  } catch (err) {
+    res.status(500).json({ message: 'Forwarding failed', error: err.message });
   }
 };

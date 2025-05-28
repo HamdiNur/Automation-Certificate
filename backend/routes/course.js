@@ -5,7 +5,9 @@ import {
   getStudentCourses,
   checkEligibility,
   getAllStudentCourses,
-  getAllPassedStudents
+  getAllPassedStudents,
+  bulkUpdateCourses,
+  fixIncorrectPassStatus
 } from '../controllers/courseController.js';
 
 const router = express.Router();
@@ -15,6 +17,8 @@ router.post('/create', createCourseRecords);
 
 // 🔹 Update pass/fail status of a course
 router.put('/update', updateCourseStatus);
+router.put('/bulk-update', bulkUpdateCourses); // ✅ NEW route
+
 
 // 🔹 Get all courses of a student
 router.get('/student/:studentId', getStudentCourses);
@@ -22,6 +26,8 @@ router.get('/student/:studentId', getStudentCourses);
 // 🔹 Check if student is eligible to graduate (passed all courses)
 router.get('/check/:idOrCode', checkEligibility);
 router.get('/passed/all', getAllPassedStudents);
+router.put('/fix-pass-status', fixIncorrectPassStatus); // ✅ Safe cleanup route
+
 
 
 // ✅ New route to fetch all students' courses

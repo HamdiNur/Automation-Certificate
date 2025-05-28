@@ -9,19 +9,17 @@ const studentSchema = new mongoose.Schema({
   },
   fullName: {
     type: String,
-    required: [true, 'Full name is required']
+    required: true
   },
   motherName: {
     type: String,
-    required: [true, 'Mother’s name is required']
+    required: true
   },
   gender: {
     type: String,
     enum: ['male', 'female'],
-    required: [true, 'Gender is required']
+    required: true
   },
-
-  // 📚 Academic Background
   program: {
     type: String,
     required: true
@@ -34,24 +32,40 @@ const studentSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
-  duration: {
-    type: Number,
-    default: 4
-  },
   yearOfGraduation: {
     type: Number,
     required: true
   },
+  duration: {
+    type: Number,
+    default: 4
+  },
   groupId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Group',
-    required: false
+    ref: 'Group'
+  },
+
+  // 📘 Academic Mode & Status
+  mode: {
+    type: String,
+    enum: ['fulltime', 'parttime'],
+    default: 'fulltime'
+  },
+  status: {
+    type: String,
+    enum: ['active', 'inactive'], // active: still student, inactive: graduated
+    default: 'active'
+  },
+  role: {
+    type: String,
+    enum: ['leader', 'member'],
+    default: 'null'
   },
 
   // 🔒 Authentication
   email: {
     type: String,
-    required: [true, 'Email is required'],
+    required: true,
     unique: true,
     lowercase: true
   },
@@ -67,9 +81,20 @@ const studentSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-nameCorrectionRequested: { type: Boolean, default: false },  // ✅ New
 
-  // ✅ Verification & Status
+  // ✅ Verification & Name Correction
+  nameCorrectionRequested: {
+    type: Boolean,
+    default: null
+  },
+  nameCorrectionEligible: {
+    type: Boolean,
+    default: false
+  },
+  requestedName: {
+    type: String,
+    default: ''
+  },
   nameVerified: {
     type: Boolean,
     default: false
@@ -78,6 +103,12 @@ nameCorrectionRequested: { type: Boolean, default: false },  // ✅ New
     type: String,
     default: ''
   },
+  sentToAdmission: {
+    type: Boolean,
+    default: false
+  },
+
+  // 🧾 Clearance Status
   clearanceStatus: {
     type: String,
     enum: ['pending', 'Approved', 'Rejected'],
@@ -93,6 +124,7 @@ nameCorrectionRequested: { type: Boolean, default: false },  // ✅ New
     type: String,
     default: ''
   }
+
 }, { timestamps: true });
 
 const Student = mongoose.models.Student || mongoose.model('Student', studentSchema);

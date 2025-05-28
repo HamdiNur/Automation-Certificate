@@ -5,7 +5,8 @@ import {
   FaUser,
   FaCog,
   FaClipboardList,
-  FaEdit
+  FaEdit,
+  FaBook // ✅ New icon for Courses
 } from "react-icons/fa";
 import { Link } from "react-router-dom";
 import "./Sidebar.css";
@@ -18,7 +19,8 @@ function Sidebar() {
         <li><FaTachometerAlt /> <Link to="/dashboard">Dashboard</Link></li>
         <li><FaClipboardList /> <Link to="/requests">Clearances</Link></li>
         <li><FaCalendarAlt /> <Link to="/appointments">Appointments</Link></li>
-        <li><FaEdit /> <Link to="/name-corrections">Name Corrections</Link></li> {/* ✅ New */}
+        <li><FaEdit /> <Link to="/name-corrections">Name Corrections</Link></li>
+        <li><FaBook /> <Link to="/courses">Courses</Link></li> {/* ✅ New */}
         <li><FaUser /> <Link to="/users">Users</Link></li>
         <li><FaCog /> <Link to="/profile">Profile</Link></li>
       </ul>

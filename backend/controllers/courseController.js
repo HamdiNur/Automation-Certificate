@@ -2,6 +2,8 @@
 
 import CourseRecord from '../models/course.js';
 import Student from '../models/Student.js';
+import { revalidateGraduationEligibility } from './examinationController.js'; // adjust path if needed
+
 
 // 🔹 Create multiple course records for a student
 export const createCourseRecords = async (req, res) => {
@@ -19,6 +21,13 @@ export const createCourseRecords = async (req, res) => {
     }));
 
     const inserted = await CourseRecord.insertMany(formatted);
+         // ✅ Revalidate graduation eligibility after insertion
+    await revalidateGraduationEligibility(
+      { body: { studentId } },
+      { status: () => ({ json: () => {} }) } // fake response
+    );
+
+
     res.status(201).json({ message: 'Course records created', inserted });
   } catch (err) {
     res.status(500).json({ message: 'Failed to create records', error: err.message });
@@ -30,19 +39,28 @@ export const updateCourseStatus = async (req, res) => {
   const { studentId, courseCode, passed } = req.body;
 
   try {
-    const course = await CourseRecord.findOneAndUpdate(
-      { studentId, courseCode },
-      { passed },
-      { new: true }
-    );
-
+    const course = await CourseRecord.findOne({ studentId, courseCode });
     if (!course) return res.status(404).json({ message: 'Course not found' });
+
+    // 🛡️ Auto-correct passed status based on grade
+    const grade = course.grade?.toUpperCase() || "";
+    const finalPassed = !["F", "FX"].includes(grade);
+
+    course.passed = finalPassed;
+    await course.save();
+
+    // 🔁 Revalidate eligibility
+    await revalidateGraduationEligibility(
+      { body: { studentId } },
+      { status: () => ({ json: () => {} }) }
+    );
 
     res.status(200).json({ message: 'Course status updated', course });
   } catch (err) {
     res.status(500).json({ message: 'Error updating course', error: err.message });
   }
 };
+
 
 // 🔹 Get all courses of a student
 // 🔹 Get all courses of a student WITH fullName + readable studentId
@@ -110,8 +128,13 @@ export const checkEligibility = async (req, res) => {
 };
 // 🔹 Get course records for ALL students
 export const getAllStudentCourses = async (req, res) => {
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 20;
+  const skip = (page - 1) * limit;
+
   try {
-    const students = await Student.find().lean();
+    const totalStudents = await Student.countDocuments();
+    const students = await Student.find().skip(skip).limit(limit).lean();
     const allRecords = [];
 
     for (const student of students) {
@@ -128,11 +151,18 @@ export const getAllStudentCourses = async (req, res) => {
       });
     }
 
-    res.status(200).json(allRecords);
+    const totalPages = Math.ceil(totalStudents / limit);
+
+    res.status(200).json({
+      data: allRecords,
+      page,
+      totalPages
+    });
   } catch (err) {
-    res.status(500).json({ message: 'Failed to fetch all student courses', error: err.message });
+    res.status(500).json({ message: 'Failed to fetch student courses', error: err.message });
   }
 };
+
 
 export const getAllPassedStudents = async (req, res) => {
   try {
@@ -160,5 +190,57 @@ export const getAllPassedStudents = async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ message: 'Failed to fetch passed students', error: err.message });
+  }
+};
+
+// 🔹 Bulk update grades for re-exam and revalidate eligibility
+export const bulkUpdateCourses = async (req, res) => {
+  const { studentId, updates } = req.body;
+  // updates = [{ courseCode, newGrade }]
+
+  try {
+    const isPass = (grade) => {
+      if (!grade) return false;
+      return !["F", "FX"].includes(grade.toUpperCase());
+    };
+
+    for (const { courseCode, newGrade } of updates) {
+      await CourseRecord.findOneAndUpdate(
+        { studentId, courseCode },
+        {
+          grade: newGrade,
+          passed: isPass(newGrade)
+        },
+        { new: true }
+      );
+    }
+
+    // 🔁 Revalidate eligibility
+    await revalidateGraduationEligibility(
+      { body: { studentId } },
+      { status: () => ({ json: () => {} }) }
+    );
+
+    res.status(200).json({ message: 'All courses updated and revalidated.' });
+  } catch (err) {
+    res.status(500).json({ message: 'Bulk update failed', error: err.message });
+  }
+};
+
+
+// 🔹 Fix wrongly marked F/FX grades as passed
+export const fixIncorrectPassStatus = async (req, res) => {
+  try {
+    const result = await CourseRecord.updateMany(
+      { grade: { $in: ["F", "FX"], $exists: true }, passed: true },
+      { $set: { passed: false } }
+    );
+
+    res.status(200).json({
+      message: "✅ Fixed incorrect passed statuses for F/FX grades.",
+      corrected: result.modifiedCount
+    });
+  } catch (err) {
+    res.status(500).json({ message: "❌ Failed to fix course records.", error: err.message });
   }
 };
