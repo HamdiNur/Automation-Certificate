@@ -55,6 +55,8 @@ export const programDurations = {
     "BSc. in Business Administration": "BA",
     "BSc. in Accounting & Finance": "AF",
     "BSc. in Public Administration": "PA",
-    "Bachelor of Science in Computer Applications": "CA"
+    "Bachelor of Science in Computer Applications": "C1"
   };
   
+
+  /// I THINK WE WONT NEED YOU ANYMORE 

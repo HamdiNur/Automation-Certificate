@@ -9,10 +9,12 @@ const examinationSchema = new mongoose.Schema({
   nameConfirmed: { type: Boolean, default: false },
   nameCorrectionDoc: String,
 
+
   requiredDocs: {
     passportUploaded: { type: Boolean, default: false },
-    // otherDocsVerified: { type: Boolean, default: false }
   },
+forwardedToAdmission: { type: Boolean, default: false },
+forwardedReason: { type: String }, // optional
 
   clearanceStatus: {
     type: String,

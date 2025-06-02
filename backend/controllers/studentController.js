@@ -1,14 +1,13 @@
 import dotenv from 'dotenv';
 dotenv.config();
 import jwt from 'jsonwebtoken';
-import Student from '../models/Student.js';
 import bcrypt from 'bcryptjs';
-import Group from '../models/group.js'; // ✅ Add this
+
+import Student from '../models/Student.js';
+import Group from '../models/group.js';
 import CourseRecord from '../models/course.js';
 import Clearance from '../models/Clearance.js';
-import Examination from '../models/examination.js'; // or the correct path to your Examination model
-
-
+import Examination from '../models/examination.js';
 import Finance from '../models/finance.js';
 
 import { generateStudentUserId } from '../utils/idGenerator.js';
@@ -27,16 +26,26 @@ export const registerStudent = async (req, res) => {
       gender,
       mode,
       status,
-      role
+      
     } = req.body;
 
+    // 🔐 Generate password & hash
     const rawPassword = Math.floor(100000 + Math.random() * 900000).toString();
     const hashedPassword = await bcrypt.hash(rawPassword, 10);
+
+    // 🆔 Generate student ID
     const studentId = await generateStudentUserId(program, yearOfAdmission);
+
+    // 🏛️ Get academic info
     const faculty = getFacultyByProgram(program);
     const duration = programDurations[program] || 4;
     const yearOfGraduation = yearOfAdmission + duration;
 
+    // 🏫 Generate student class label (e.g., CA211)
+    const index = await Student.countDocuments({ program, yearOfAdmission });
+    const studentClass = generateStudentClass(program, yearOfAdmission, index);
+
+    // 📦 Create student
     const newStudent = await Student.create({
       fullName,
       email,
@@ -46,6 +55,7 @@ export const registerStudent = async (req, res) => {
       yearOfAdmission,
       duration,
       yearOfGraduation,
+      studentClass,
       rawPassword,
       hashedPassword,
       phone,
@@ -53,9 +63,10 @@ export const registerStudent = async (req, res) => {
       gender,
       mode,
       status,
-      role
+ 
     });
 
+    // ✅ Respond
     res.status(201).json({
       message: 'Student registered successfully',
       student: {
@@ -67,20 +78,22 @@ export const registerStudent = async (req, res) => {
         faculty: newStudent.faculty,
         yearOfAdmission: newStudent.yearOfAdmission,
         yearOfGraduation: newStudent.yearOfGraduation,
+        studentClass: newStudent.studentClass, // ✅ Included
         email: newStudent.email,
         phone: newStudent.phone,
-        password: newStudent.rawPassword,
+        password: newStudent.rawPassword, // 🔐 Returned for demo; secure in production
         clearanceStatus: newStudent.clearanceStatus,
         profilePicture: newStudent.profilePicture,
         mode: newStudent.mode,
         status: newStudent.status,
-        role: newStudent.role
       }
     });
   } catch (error) {
+    console.error('Register Error:', error.message);
     res.status(500).json({ error: error.message });
   }
 };
+
 
 
 // ✅ LOGIN STUDENT
@@ -112,24 +125,25 @@ export const loginStudent = async (req, res) => {
    res.status(200).json({
   message: 'Login successful',
   token,
-  student: {
-    id: student._id,
-    studentId: student.studentId,
-    fullName: student.fullName,
-    gender: student.gender,
-    motherName: student.motherName,
-    program: student.program,
-    faculty: student.faculty,
-    yearOfAdmission: student.yearOfAdmission,
-    yearOfGraduation: student.yearOfGraduation,
-    email: student.email,
-    phone: student.phone,
-    clearanceStatus: student.clearanceStatus,
-    profilePicture: student.profilePicture,
-    mode: student.mode,        // NEW
-    status: student.status,    // NEW
-    role: student.role         // NEW
-  }
+student: {
+  id: student._id,
+  studentId: student.studentId,
+  fullName: student.fullName,
+  gender: student.gender,
+  motherName: student.motherName,
+  program: student.program,
+  faculty: student.faculty,
+  yearOfAdmission: student.yearOfAdmission,
+  yearOfGraduation: student.yearOfGraduation,
+  studentClass: student.studentClass, // ✅ Add this line
+  email: student.email,
+  phone: student.phone,
+  clearanceStatus: student.clearanceStatus,
+  profilePicture: student.profilePicture,
+  mode: student.mode,
+  status: student.status,
+}
+
 });
 
   } catch (error) {

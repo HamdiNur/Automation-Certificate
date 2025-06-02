@@ -31,12 +31,12 @@ export const generateStaffUserId = async (role, yearOfEmployment) => {
 
 //ID GEnerator
 
-export const generateStudentUserId = async (program, yearOfAdmission) => {
-  const prefix = programPrefixes[program] || "ST";
-  const year = yearOfAdmission.toString().slice(-2);
+// utils/idGenerator.js
 
-  const count = await Student.countDocuments({ program, yearOfAdmission });
-  const serial = (count + 1).toString().padStart(4, '0');
+export const generateStudentUserId = async (program, year, index = 0) => {
+  const yearPart = year.toString().slice(-2); // e.g., 2021 → "21"
+  const prefix = 'C1'; // Fixed for Computer Applications
+  const serial = String(index + 1).padStart(4, '0'); // "0001", "0002", ...
 
-  return `${prefix}${year}${serial}`; // e.g., NU230001
+  return `${prefix}${yearPart}${serial}`; // e.g., C1210001
 };

@@ -3,17 +3,36 @@ import {
   getPendingFaculty,
   approveFaculty,
   rejectFaculty,
-  getFacultyStats,
-  updateFacultyChecklist
+  // getFacultyStats,
+  updateFacultyChecklist,
+  startFacultyClearance,
+  getFacultyHistory,
+  markReadyAgain,
+  getApprovedFacultyGroups,
+  getFacultyStatusCount,
+  getRejectedFacultyGroups
 } from '../controllers/facultyController.js';
+import studentAuth from '../middleware/studentAuth.js';
+import auth from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
-router.get('/pending', getPendingFaculty);
-router.post('/approve', approveFaculty);
-router.post('/reject', rejectFaculty);
-router.get('/stats', getFacultyStats); // ✅ New route for dashboard
-router.patch('/update-checklist', updateFacultyChecklist); // ⬅️ Add this route
+
+router.post('/start-clearance', studentAuth, startFacultyClearance);
+// routes/facultyRoute.js
+router.get('/status-count', getFacultyStatusCount);
+
+router.get('/pending', auth,getPendingFaculty);
+router.post('/approve',auth, approveFaculty);
+router.post('/reject',auth, rejectFaculty);
+router.get('/rejected', auth, getRejectedFacultyGroups); // ✅ Add this line
+
+router.patch('/mark-ready-again',auth, markReadyAgain);
+router.get('/approved', auth,getApprovedFacultyGroups);
+
+// router.get('/stats', getFacultyStats); // ✅ New route for dashboard
+router.patch('/update-checklist',auth, updateFacultyChecklist); // ⬅️ Add this route
+router.get('/history/:groupId', auth, getFacultyHistory); // 🆕 See logs for this group
 
 
 export default router;

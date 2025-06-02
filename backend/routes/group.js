@@ -6,6 +6,7 @@ import {
   getAllGroups,
   getGroupById,
   getGroupByNumber,
+  getGroupMembers,
   getGroupsByClearanceStatus,
   getGroupStatusCount, // ✅ added
   updateClearanceStatus
@@ -16,6 +17,8 @@ router.get('/status-count', getGroupStatusCount); // ✅ added
 router.get('/by-number/:groupNumber', getGroupByNumber);
 router.get('/status/:type/:status', getGroupsByClearanceStatus); 
 router.post('/update-clearance', updateClearanceStatus);
+router.get('/:groupId/students', getGroupMembers);
+
 router.get('/:id', getGroupById);              // ⚠️ This should stay last
 
 export default router;

@@ -1,17 +1,28 @@
-import mongoose from 'mongoose';
 
+import mongoose from 'mongoose';
 const groupSchema = new mongoose.Schema({
-  groupNumber: { type: Number, unique: true },
+  groupNumber: { type: Number, required: true },
+  admissionYear: { type: Number, required: true },
   program: String,
   faculty: String,
   projectTitle: String,
   thesisFileUrl: String,
+
   members: [
     {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Student'
+      student: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Student',
+        required: true
+      },
+      role: {
+        type: String,
+        enum: ['Leader', 'Member'],
+        default: 'Member'
+      }
     }
   ],
+
   phaseOneCleared: Boolean,
   overallStatus: {
     type: String,
@@ -19,15 +30,26 @@ const groupSchema = new mongoose.Schema({
     default: 'Pending'
   },
   clearanceProgress: {
-    faculty: { status: { type: String, default: 'Pending' }, clearedBy: String, date: Date ,
-    facultyRemarks: String, 
-  },
-    library: { status: { type: String, default: 'Pending' }, clearedBy: String, date: Date },
-    lab: { status: { type: String, default: 'Pending' }, clearedBy: String, date: Date },
-   
+    faculty: {
+      status: { type: String, default: 'Pending' },
+      clearedBy: String,
+      date: Date,
+      facultyRemarks: String
+    },
+    library: {
+      status: { type: String, default: 'Pending' },
+      clearedBy: String,
+      date: Date
+    },
+    lab: {
+      status: { type: String, default: 'Pending' },
+      clearedBy: String,
+      date: Date
+    },
   },
   clearedAt: Date
 }, { timestamps: true });
 
-export default mongoose.model('Group', groupSchema);
+groupSchema.index({ groupNumber: 1, admissionYear: 1 }, { unique: true });
 
+export default mongoose.model('Group', groupSchema);

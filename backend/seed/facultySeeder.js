@@ -1,5 +1,10 @@
 // 📁 seed/facultySeeder.js
 
+
+
+
+///we don't need you any more 
+
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import Faculty from '../models/faculty.js';
@@ -27,17 +32,21 @@ const seedFaculty = async () => {
       const facultyStatus = group.clearanceProgress?.faculty?.status || 'Pending';
       const clearedAt = facultyStatus === 'Approved' ? new Date() : null;
 
-      facultyRecords.push({
-        studentId: student._id,
-        groupId: group._id,
-        thesisTitle: group.projectTitle || "Untitled Research Project",
-        printedThesisSubmitted: Math.random() > 0.3,
-        signedFormSubmitted: Math.random() > 0.2,
-        softCopyReceived: Math.random() > 0.1,
-        status: facultyStatus,
-        clearedAt,
-        facultyRemarks: facultyStatus === 'Rejected' ? 'Auto-rejected from seed' : ''
-      });
+facultyRecords.push({
+  studentId: student._id,
+  groupId: group._id,
+  admissionYear: group.admissionYear,
+  groupNumber: group.groupNumber,
+  thesisTitle: group.projectTitle || "Untitled Research Project",
+  printedThesisSubmitted: Math.random() > 0.3,
+  signedFormSubmitted: Math.random() > 0.2,
+  softCopyReceived: Math.random() > 0.1,
+  status: facultyStatus,
+  clearedAt: facultyStatus === 'Approved' ? group.clearedAt : null,
+  facultyRemarks: facultyStatus === 'Rejected' ? 'Auto-rejected from seed' : '',
+  rejectionReason: facultyStatus === 'Rejected' ? 'Auto-rejected from seed' : ''
+});
+
     }
 
     await Faculty.insertMany(facultyRecords);

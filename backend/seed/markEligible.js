@@ -25,17 +25,17 @@ const markEligibleForExamination = async () => {
       for (const student of group.members) {
         const studentId = student._id;
 
-        // Avoid duplicates
         const alreadyExists = await Examination.exists({ studentId });
-        if (alreadyExists) continue;
+        if (alreadyExists) {
+          skipped++;
+          continue;
+        }
 
-        // ✅ Check course pass
         const hasFailed = await CourseRecord.exists({
           studentId,
           passed: false
         });
 
-        // ✅ Check if graduation fee paid
         const financeApproved = await Finance.exists({
           studentId,
           type: "Payment",
@@ -43,19 +43,19 @@ const markEligibleForExamination = async () => {
           status: "Approved"
         });
 
-        // ✅ Create examination record regardless of pass/fail
         await Examination.create({
           studentId,
           hasPassedAllCourses: !hasFailed,
           canGraduate: !hasFailed && financeApproved,
-          status: "Pending"
+          clearanceStatus: "Pending" // ✅ FIXED HERE
         });
 
         created++;
       }
     }
 
-    console.log(`✅ ${created} students marked as eligible for examination (with or without failed courses).`);
+    console.log(`✅ ${created} students marked as eligible for examination.`);
+    console.log(`ℹ️ ${skipped} students already had examination records.`);
     process.exit();
   } catch (err) {
     console.error("❌ Error in markEligibleForExamination:", err.message);

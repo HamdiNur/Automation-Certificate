@@ -152,3 +152,38 @@ export const updateClearanceStatus = async (req, res) => {
     res.status(500).json({ message: "Server error", error: err.message });
   }
 };
+
+
+// controllers/groupController.js
+export const getGroupMembers = async (req, res) => {
+  try {
+    const group = await Group.findById(req.params.groupId).populate({
+      path: 'members.student',          // Populate the 'student' inside each member
+      model: 'Student',
+      select: 'studentId fullName role mode status studentClass',  // Added studentClass here
+    });
+
+    if (!group) {
+      return res.status(404).json({ message: 'Group not found' });
+    }
+
+    // Map members to include populated student details alongside the role stored in members
+    const formattedMembers = group.members.map((m) => ({
+      _id: m._id,
+      role: m.role,                     // role from members array
+      studentId: m.student?.studentId || '',   // student fields from populated student doc
+      fullName: m.student?.fullName || '',
+      mode: m.student?.mode || '',
+      status: m.student?.status || '',
+      studentClass: m.student?.studentClass || '',  // Added studentClass field here
+    }));
+
+    res.json({
+      groupNumber: group.groupNumber,
+      members: formattedMembers,
+    });
+  } catch (error) {
+    console.error('Failed to fetch group members:', error.message);
+    res.status(500).json({ message: 'Failed to fetch group members', error: error.message });
+  }
+};

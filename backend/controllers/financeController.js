@@ -8,8 +8,6 @@ import CourseRecord from '../models/course.js';
 import { revalidateGraduationEligibility } from './examinationController.js'; // adjust path if needed
 
 
-
-
 // ✅ 1. Fetch full finance summary for a student
 export const getStudentFinanceSummary = async (req, res) => {
   const { studentId } = req.params;

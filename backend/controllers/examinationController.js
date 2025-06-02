@@ -183,32 +183,44 @@ export const getFailedCourses = async (req, res) => {
 
 /// 🆕 Student requests name correction
 export const requestNameCorrection = async (req, res) => {
-  const { studentId } = req.body;
+  const { studentId, requestedName } = req.body; // 🆕 requestedName is required to compare
 
   try {
     const exam = await Examination.findOne({ studentId });
     if (!exam) return res.status(404).json({ message: 'Examination record not found' });
 
-    // 🛠️ ADD THIS BLOCK BELOW
     const student = await Student.findById(studentId);
     if (!student) return res.status(404).json({ message: 'Student not found' });
 
-    // ✅ Check if student has actually clicked "YES" for name correction
     if (!student.nameCorrectionRequested) {
       return res.status(403).json({
         message: '❌ You must first confirm your name correction request.'
       });
     }
 
-    // ✅ Only after confirmation, record the name correction
-    exam.nameCorrectionDoc = 'Pending'; // or keep this until file is uploaded
+    // ✅ Check if first names are completely different (major change)
+    const isMajorCorrection = student.fullName.split(' ')[0] !== requestedName?.split(' ')[0];
+
+    exam.nameCorrectionDoc = 'Pending';
+    exam.forwardedToAdmission = isMajorCorrection;
+    exam.forwardedReason = isMajorCorrection
+      ? "Major name change requested. Forwarded to Admission Office for verification."
+      : null;
+
     await exam.save();
 
-    res.status(200).json({ message: 'Name correction request recorded' });
+    res.status(200).json({
+      message: isMajorCorrection
+        ? "Your request was forwarded to the Admission Office."
+        : "Name correction request recorded.",
+      forwarded: isMajorCorrection
+    });
+
   } catch (err) {
     res.status(500).json({ message: 'Failed to update request', error: err.message });
   }
 };
+
 
 
 // 🆕 Upload verification document (passport/school cert)

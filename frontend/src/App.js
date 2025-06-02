@@ -18,6 +18,9 @@ import NameCorrections from "./Admin/pages/NameCorrections";
 import FacultyDashboard from "./facualty/pages/FacultyDashboar";
 import FacultyRequests from "./facualty/pages/FacultyRequests";
 import FacultyProfile from "./facualty/pages/FacultyProfile";
+import ApprovedFacultyClearance from "./facualty/pages/ApprovedFacultyClearanc";
+import RejectedFacultyClearance from "./facualty/pages/RejectedFacultyClearance";
+
 
 // Lab Pages
 import LabDashboard from "./Lap/pages/LabDashboard";
@@ -42,6 +45,7 @@ import FinanceProfile from "./Finance/pages/FinanceProfile";
 import PendingApprovals from "./Finance/pages/PendingApprovals";
 import GraduationPaid from "./Finance/pages/GraduationPaid";
 import StudentReexamDashboardWrapper from "./Admin/pages/StudentReexamDashboardWrapper";
+import GroupMembersPage from "./facualty/pages/GroupMember";
 
 function App() {
   return (
@@ -66,6 +70,12 @@ function App() {
         {/* Faculty */}
         <Route path="/faculty/dashboard" element={<FacultyDashboard />} />
         <Route path="/faculty/requests" element={<FacultyRequests />} />
+        <Route path="/faculty/approved" element={<ApprovedFacultyClearance />} />
+        <Route path="/faculty/rejected" element={<RejectedFacultyClearance />} />
+        <Route path="/faculty/group/:groupId/members" element={<GroupMembersPage />} />
+
+
+
         <Route path="/faculty/profile" element={<FacultyProfile />} />
 
         {/* Lab */}

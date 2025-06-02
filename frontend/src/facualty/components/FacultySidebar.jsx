@@ -17,6 +17,14 @@ function FacultySidebar() {
       <ul>
         <li><Link to="/faculty/dashboard">Dashboard</Link></li>
         <li><Link to="/faculty/requests">Requests</Link></li>
+        <li>
+  <       Link to="/faculty/approved">Approved Clearances</Link>
+         </li>
+         <li>
+  <Link to="/faculty/rejected">
+    <span>Rejected Clearances</span>
+  </Link>
+</li>
         <li><Link to="/faculty/profile">Profile</Link></li>
         <li onClick={handleLogout} style={{ cursor: "pointer", marginTop: "30px", color: "0d2d63" }}>
           <FiLogOut style={{ marginRight: "8px" }} />

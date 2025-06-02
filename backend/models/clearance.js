@@ -39,11 +39,8 @@ const clearanceSchema = new mongoose.Schema({
     enum: ['Incomplete', 'Approved'],
     default: 'Incomplete'
   },
+},
+   { timestamps: true }); //
 
-  updatedAt: {
-    type: Date,
-    default: Date.now
-  }
-});
 
 export default mongoose.model('Clearance', clearanceSchema);

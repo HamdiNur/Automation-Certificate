@@ -17,7 +17,7 @@ const studentSchema = new mongoose.Schema({
   },
   gender: {
     type: String,
-    enum: ['male', 'female'],
+    enum: ['Male', 'Female'],
     required: true
   },
   program: {
@@ -40,6 +40,10 @@ const studentSchema = new mongoose.Schema({
     type: Number,
     default: 4
   },
+  studentClass: { // 🆕 Added here – belongs to academic identity
+    type: String,
+    required: true
+  },
   groupId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Group'
@@ -48,19 +52,15 @@ const studentSchema = new mongoose.Schema({
   // 📘 Academic Mode & Status
   mode: {
     type: String,
-    enum: ['fulltime', 'parttime'],
-    default: 'fulltime'
+    enum: ['Fulltime', 'Parttime'],
+    default: 'Fulltime'
   },
   status: {
     type: String,
-    enum: ['active', 'inactive'], // active: still student, inactive: graduated
-    default: 'active'
+    enum: ['Active', 'Inactive'], // active: still student, inactive: graduated
+    default: 'Active'
   },
-  role: {
-    type: String,
-    enum: ['leader', 'member'],
-    default: 'null'
-  },
+
 
   // 🔒 Authentication
   email: {
@@ -111,8 +111,8 @@ const studentSchema = new mongoose.Schema({
   // 🧾 Clearance Status
   clearanceStatus: {
     type: String,
-    enum: ['pending', 'Approved', 'Rejected'],
-    default: 'pending'
+    enum: ['Pending', 'Approved', 'Rejected'],
+    default: 'Pending'
   },
   isCleared: {
     type: Boolean,

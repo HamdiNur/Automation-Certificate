@@ -13,7 +13,7 @@ function FacultyDashboard() {
   useEffect(() => {
     const fetchCounts = async () => {
       try {
-        const res = await axios.get("http://localhost:5000/api/groups/status-count");
+const res = await axios.get("http://localhost:5000/api/faculty/status-count");
         setCounts(res.data);
       } catch (err) {
         console.error("❌ Error fetching dashboard counts:", err.message);
