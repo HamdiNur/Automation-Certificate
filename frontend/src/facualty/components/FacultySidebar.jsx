@@ -17,6 +17,8 @@ function FacultySidebar() {
       <ul>
         <li><Link to="/faculty/dashboard">Dashboard</Link></li>
         <li><Link to="/faculty/requests">Requests</Link></li>
+<li><Link to="/faculty/group-members">Group Members</Link></li>
+
         <li>
   <       Link to="/faculty/approved">Approved Clearances</Link>
          </li>

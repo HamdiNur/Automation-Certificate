@@ -10,8 +10,6 @@ function ApprovedFacultyClearance() {
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [groupHistory, setGroupHistory] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
-  
-  // New: search term state
   const [searchTerm, setSearchTerm] = useState("");
 
   const token = localStorage.getItem("token");
@@ -52,7 +50,6 @@ function ApprovedFacultyClearance() {
     }
   };
 
-  // Filter approved groups by search term
   const filteredApproved = approved.filter((f) => {
     const groupNumber = f.groupId?.groupNumber?.toString() || "";
     const projectTitle = f.groupId?.projectTitle?.toLowerCase() || "";
@@ -73,7 +70,13 @@ function ApprovedFacultyClearance() {
             placeholder="Search by group number or project title..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            style={{ width: '300px', padding: '10px 15px', fontSize: '15px', borderRadius: '8px', border: '1px solid #ccc' }}
+            style={{
+              width: '300px',
+              padding: '10px 15px',
+              fontSize: '15px',
+              borderRadius: '8px',
+              border: '1px solid #ccc'
+            }}
           />
         </div>
 
@@ -102,7 +105,11 @@ function ApprovedFacultyClearance() {
                       {f.status}
                     </span>
                   </td>
-                  <td>{new Date(f.updatedAt).toLocaleDateString()}</td>
+<td>
+  {f.clearedAt
+    ? new Date(f.clearedAt).toLocaleDateString()
+    : "—"}
+</td>
                   <td>
                     <div className="action-buttons">
                       <button
@@ -141,7 +148,19 @@ function ApprovedFacultyClearance() {
                 <li key={i} style={{ marginBottom: "1rem" }}>
                   <strong>Status:</strong> {h.status} <br />
                   <strong>Reason:</strong> {h.reason || "—"} <br />
-                  <strong>By:</strong> {h.actor?.fullName || "Unknown"} ({h.actor?.role || "N/A"}) <br />
+                  <strong>By:</strong>{" "}
+                  {h.startedBy ? (
+                    <>
+                      {h.startedBy.fullName} (Student)
+                    </>
+                  ) : h.actor ? (
+                    <>
+                      {h.actor.fullName} ({h.actor.role})
+                    </>
+                  ) : (
+                    "Unknown"
+                  )}
+                  <br />
                   <strong>Date:</strong>{" "}
                   {new Date(h.date).toLocaleString("en-US", {
                     dateStyle: "medium",

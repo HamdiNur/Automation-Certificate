@@ -26,8 +26,10 @@ router.get('/pending', auth,getPendingFaculty);
 router.post('/approve',auth, approveFaculty);
 router.post('/reject',auth, rejectFaculty);
 router.get('/rejected', auth, getRejectedFacultyGroups); // ✅ Add this line
+// For students
+router.patch('/mark-ready-again', studentAuth, markReadyAgain);
 
-router.patch('/mark-ready-again',auth, markReadyAgain);
+router.patch('/admin/mark-ready-again', auth, markReadyAgain);         // For admin
 router.get('/approved', auth,getApprovedFacultyGroups);
 
 // router.get('/stats', getFacultyStats); // ✅ New route for dashboard

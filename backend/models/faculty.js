@@ -24,16 +24,20 @@ const facultySchema = new mongoose.Schema({
   facultyRemarks: { type: String },
   rejectionReason: { type: String, default: "" },
 
-  status: {
-    type: String,
-    enum: ['Pending', 'Approved', 'Rejected'],
-    default: 'Pending'
-  },
+status: {
+  type: String,
+  enum: ['Pending', 'Approved', 'Rejected'],
+  required: true
+}
+,
 
   resubmissionCount: {
     type: Number,
     default: 0
   },
+
+  requestedAt: { type: Date, default: Date.now },
+
 
   requestedAt: { type: Date, default: Date.now },
   clearedAt: { type: Date },
@@ -46,6 +50,10 @@ const facultySchema = new mongoose.Schema({
         enum: ['Pending', 'Approved', 'Rejected']
       },
       reason: String,
+          startedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Student'
+    },
       actor: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'

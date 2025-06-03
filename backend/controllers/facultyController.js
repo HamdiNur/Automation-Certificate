@@ -8,6 +8,7 @@ import Library from '../models/library.js';
 export const startFacultyClearance = async (req, res) => {
   try {
     const student = await Student.findById(req.user._id).populate('groupId');
+
     if (!student) {
       return res.status(404).json({ message: "Student not found" });
     }
@@ -23,22 +24,27 @@ export const startFacultyClearance = async (req, res) => {
       return res.status(400).json({ message: "Only final-year students can start clearance" });
     }
 
-    // ✅ Clearance must be pending
+    // ✅ Must have pending clearance status
     if (student.clearanceStatus !== 'Pending') {
       return res.status(400).json({ message: "Clearance not allowed for this student" });
     }
 
     const groupId = student.groupId._id;
-    const actorId = student._id;
     const thesisTitle = student.groupId.projectTitle || "Untitled Project";
 
-    // 🔁 Check if Faculty clearance already exists for group
-    const existing = await Faculty.findOne({ groupId });
+    // 🔁 Check if Faculty clearance already exists
+    const existing = await Faculty.findOne({ groupId }).populate('history.startedBy', 'fullName studentId');
     if (existing) {
-      return res.status(400).json({ message: "Clearance already started for this group" });
+      return res.status(200).json({
+        message: "Faculty clearance already started by your group",
+        alreadyExists: true,
+        status: existing.status,
+        data: existing,
+        startedBy: existing.history.find(h => h.status === 'Pending')?.startedBy
+      });
     }
 
-    // ✅ Create Faculty clearance
+    // ✅ Create new Faculty clearance
     const faculty = new Faculty({
       groupId,
       members: student.groupId.members.map(m => m.student),
@@ -47,19 +53,35 @@ export const startFacultyClearance = async (req, res) => {
       requestedAt: new Date(),
       history: [
         {
-          status: "Pending",
-          reason: "Clearance started",
-          actor: actorId,
-        },
-      ],
+          status: 'Pending',
+          reason: 'Clearance started by student',
+          startedBy: student._id,
+          date: new Date()
+        }
+      ]
     });
 
     await faculty.save();
 
-    return res.status(201).json({ message: "Faculty clearance started", data: faculty });
+    // ✅ Emit real-time event to faculty dashboard
+    global._io.emit('new-clearance-request', {
+      groupId,
+      thesisTitle,
+      status: 'Pending',
+      requestedAt: faculty.requestedAt
+    });
+
+    return res.status(201).json({
+      message: "Faculty clearance started",
+      data: faculty
+    });
+
   } catch (err) {
     console.error("❌ Error starting clearance:", err.message);
-    return res.status(500).json({ message: "Failed to start clearance", error: err.message });
+    return res.status(500).json({
+      message: "Failed to start clearance",
+      error: err.message
+    });
   }
 };
 
@@ -269,7 +291,8 @@ export const rejectFaculty = async (req, res) => {
 
 
 export const markReadyAgain = async (req, res) => {
-  const { groupId, actorId } = req.body;
+ const { groupId } = req.body;
+const actorId = req.user._id; // safer
 
   try {
     const faculty = await Faculty.findOne({ groupId });
@@ -292,6 +315,13 @@ export const markReadyAgain = async (req, res) => {
     });
 
     await faculty.save();
+    global._io.emit('faculty-resubmission', {
+  groupId,
+  status: 'Pending',
+  resubmissionCount: faculty.resubmissionCount,
+  timestamp: new Date(),
+});
+
 
     await Group.updateOne(
       { _id: groupId },
@@ -355,7 +385,8 @@ export const getFacultyHistory = async (req, res) => {
 
   try {
     const faculty = await Faculty.findOne({ groupId })
-      .populate('history.actor', 'fullName role');
+      .populate('history.actor', 'fullName role') // Faculty/admin who approved/rejected
+      .populate('history.startedBy', 'fullName studentId'); // Student who started the clearance
 
     if (!faculty) return res.status(404).json({ message: "Faculty record not found" });
 
@@ -365,6 +396,7 @@ export const getFacultyHistory = async (req, res) => {
     res.status(500).json({ message: "Failed to fetch history", error: err.message });
   }
 };
+
 
 
 

@@ -73,6 +73,7 @@ function App() {
         <Route path="/faculty/approved" element={<ApprovedFacultyClearance />} />
         <Route path="/faculty/rejected" element={<RejectedFacultyClearance />} />
         <Route path="/faculty/group/:groupId/members" element={<GroupMembersPage />} />
++       <Route path="/faculty/group-members" element={<GroupMembersPage />} />
 
 
 

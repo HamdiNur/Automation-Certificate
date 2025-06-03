@@ -3,25 +3,43 @@ import express from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
 import path from 'path';
-
+import http from 'http';
+import { Server as SocketServer } from 'socket.io';
 import { connectDB } from './config/db.js';
 
-// Load environment variables
 dotenv.config();
 
-// Initialize App
+// Initialize Express
 const app = express();
 const port = process.env.PORT || 5000;
 
-// Connect to MongoDB
-connectDB();
+// Create HTTP server and bind to Socket.IO
+const server = http.createServer(app);
+const io = new SocketServer(server, {
+  cors: {
+    origin: 'http://localhost:3000', // React frontend origin
+    credentials: true
+  }
+});
+
+// Expose io globally so controllers can emit events
+global._io = io;
+
+// On connection
+io.on('connection', (socket) => {
+  console.log('✅ Socket connected:', socket.id);
+
+  socket.on('disconnect', () => {
+    console.log('🔌 Socket disconnected:', socket.id);
+  });
+});
 
 // Middleware
 app.use(cors({
-  origin: 'http://localhost:3000', // 🔁 React frontend origin
+  origin: 'http://localhost:3000',
   credentials: true
 }));
-app.use(express.json()); // Parse JSON request bodies
+app.use(express.json());
 
 // Routes
 import userRouter from './routes/userRoute.js';
@@ -37,8 +55,10 @@ import notificationRoutes from './routes/notification.js';
 import clearanceRoutes from './routes/clearance.js';
 import courseRoutes from './routes/course.js';
 
+// Connect to DB
+connectDB();
 
-// Route Registration
+// Register Routes
 app.use('/api/users', userRouter);
 app.use('/api/students', studentRoutes);
 app.use('/api/faculty', facultyRoutes);
@@ -52,15 +72,15 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/clearance', clearanceRoutes);
 app.use('/api/courses', courseRoutes);
 
-// Test Route
+// Static Uploads
+app.use('/uploads', express.static(path.resolve('uploads')));
+
+// Health Check
 app.get('/', (req, res) => {
   res.send('✅ API is working.');
 });
 
-// ✅ Serve uploaded documents (e.g., correction PDFs)
-app.use('/uploads', express.static(path.resolve('uploads')));
-
 // Start Server
-app.listen(port, () => {
-  console.log(`🚀 Server started on http://localhost:${port}`);
+server.listen(port, () => {
+  console.log(`🚀 Server + Socket.IO running on http://localhost:${port}`);
 });

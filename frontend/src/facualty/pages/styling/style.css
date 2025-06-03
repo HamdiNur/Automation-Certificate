@@ -237,3 +237,7 @@ table th {
   border: 1px solid #ccc;
   border-radius: 5px;
 }
+.badge-success { background: #28a745; color: white; padding: 4px 8px; border-radius: 5px; }
+.badge-danger  { background: #dc3545; color: white; padding: 4px 8px; border-radius: 5px; }
+.badge-warning { background: #ffc107; color: black; padding: 4px 8px; border-radius: 5px; }
+.badge-default { background: #6c757d; color: white; padding: 4px 8px; border-radius: 5px; }

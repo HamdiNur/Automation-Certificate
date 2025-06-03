@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from "react";
+import { io } from "socket.io-client";
 import axios from "axios";
 import FacultySidebar from "../components/FacultySidebar";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import "./styling/style.css";
 
 function FacultyRequests() {
@@ -19,115 +22,120 @@ function FacultyRequests() {
   const [groupToReject, setGroupToReject] = useState(null);
   const [rejectionReason, setRejectionReason] = useState("");
 
+  const [socket, setSocket] = useState(null);
   const token = localStorage.getItem("token");
 
   useEffect(() => {
-    fetchRequests();
-    // eslint-disable-next-line
-  }, []);
+    const newSocket = io("http://localhost:5000");
+    setSocket(newSocket);
 
- const fetchRequests = async () => {
-  try {
-    setLoading(true);
-
-    const res = await axios.get("http://localhost:5000/api/faculty/pending", {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+    newSocket.on("connect", () => {
+      console.log("✅ Socket connected:", newSocket.id);
     });
 
-    console.log("🔍 Raw faculty data:", res.data);
+    newSocket.on("new-clearance-request", (data) => {
+      console.log("📡 New faculty request received:", data);
+      fetchRequests();
+      toast.info("📢 New faculty clearance request received!");
+    });
 
-    setRequests(
-      res.data.map((f) => {
-        const firstMember = f.groupId?.members?.[0];
+    fetchRequests();
 
-        return {
-          id: f._id,
-          groupId: f.groupId._id,
-          groupNumber: f.groupId.groupNumber,
-          projectTitle: f.thesisTitle,
-          status: f.status,
-          date: f.updatedAt?.slice(0, 10) || "Not updated",
-          rejectionReason: f.rejectionReason || "",
-          // ✅ Fallback for both populated & unpopulated members
-          studentMongoId: firstMember?._id || firstMember || "",
-        };
-      })
-    );
-  } catch (err) {
-    console.error("❌ Error fetching requests:", err.response?.data || err.message);
-    alert("⚠️ Failed to load faculty requests.");
-  } finally {
-    setLoading(false);
-  }
-};
+    return () => {
+      newSocket.disconnect();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
+  const fetchRequests = async () => {
+    try {
+      setLoading(true);
+      const res = await axios.get("http://localhost:5000/api/faculty/pending", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      setRequests(
+        res.data.map((f) => {
+          const firstMember = f.groupId?.members?.[0];
+          return {
+            id: f._id,
+            groupId: f.groupId._id,
+            groupNumber: f.groupId.groupNumber,
+            projectTitle: f.thesisTitle,
+            status: f.status,
+            date: f.updatedAt?.slice(0, 10) || "Not updated",
+            rejectionReason: f.rejectionReason || "",
+            studentMongoId: firstMember?._id || firstMember || "",
+          };
+        })
+      );
+    } catch (err) {
+      console.error("❌ Error fetching requests:", err.response?.data || err.message);
+      toast.error("⚠️ Failed to load faculty requests.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleChecklistChange = (field) => {
     setChecklist((prev) => ({ ...prev, [field]: !prev[field] }));
   };
 
-const handleApprove = async (groupId) => {
-  try {
-    const allChecked = Object.values(checklist).every(Boolean);
-    if (!allChecked) return alert("Complete the checklist before approval.");
+  const handleApprove = async (groupId) => {
+    try {
+      const allChecked = Object.values(checklist).every(Boolean);
+      if (!allChecked) return toast.warning("Complete the checklist before approval.");
 
-    // 1. Update checklist using groupId
-    await axios.patch("http://localhost:5000/api/faculty/update-checklist", {
-      groupId,
-      checklist: {
-        printedThesisSubmitted: checklist.thesisSubmitted,
-        signedFormSubmitted: checklist.formSubmitted,
-        softCopyReceived: checklist.paperSubmitted,
-        supervisorCommentsWereCorrected: checklist.supervisorComments,
-      },
-    }, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+      await axios.patch("http://localhost:5000/api/faculty/update-checklist", {
+        groupId,
+        checklist: {
+          printedThesisSubmitted: checklist.thesisSubmitted,
+          signedFormSubmitted: checklist.formSubmitted,
+          softCopyReceived: checklist.paperSubmitted,
+          supervisorCommentsWereCorrected: checklist.supervisorComments,
+        },
+      }, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-    // 2. Approve
-    await axios.post("http://localhost:5000/api/faculty/approve", {
-      groupId
-    }, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+      await axios.post("http://localhost:5000/api/faculty/approve", {
+        groupId,
+      }, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-    alert("✅ Faculty approved.");
-    fetchRequests();
-    setShowChecklistModal(false);
-  } catch (err) {
-    console.error("❌ Approval failed:", err?.response?.data || err.message);
-    alert(err?.response?.data?.message || "Error during approval.");
-  }
-};
-
-
+      toast.success("✅ Faculty approved.");
+      fetchRequests();
+      setShowChecklistModal(false);
+    } catch (err) {
+      console.error("❌ Approval failed:", err?.response?.data || err.message);
+      toast.error(err?.response?.data?.message || "Error during approval.");
+    }
+  };
 
   const handleReject = async (groupId) => {
     try {
-      await axios.post(
-        "http://localhost:5000/api/faculty/reject",
-        {
-          groupId,
-          rejectionReason,
+      await axios.post("http://localhost:5000/api/faculty/reject", {
+        groupId,
+        rejectionReason,
+      }, {
+        headers: {
+          Authorization: `Bearer ${token}`,
         },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-      alert("❌ Faculty request rejected.");
+      });
+
+      toast.error("❌ Faculty request rejected.");
       fetchRequests();
       setShowRejectModal(false);
     } catch (err) {
       console.error("❌ Rejection failed:", err);
-      alert("Error during rejection.");
+      toast.error("Error during rejection.");
     }
   };
 
@@ -242,11 +250,11 @@ const handleApprove = async (groupId) => {
                     type="checkbox"
                     checked={checklist[field]}
                     onChange={() => handleChecklistChange(field)}
-                  /> {label}
+                  />{" "}
+                  {label}
                 </label>
               </div>
             ))}
-
             <button
               className="btn-confirm"
               disabled={!Object.values(checklist).every(Boolean)}
@@ -293,6 +301,9 @@ const handleApprove = async (groupId) => {
           </div>
         </div>
       )}
+
+      {/* ✅ Toast container for notifications */}
+      <ToastContainer position="top-right" autoClose={3000} />
     </div>
   );
 }

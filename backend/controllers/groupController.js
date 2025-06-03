@@ -180,10 +180,52 @@ export const getGroupMembers = async (req, res) => {
 
     res.json({
       groupNumber: group.groupNumber,
+      program: group.program,
+      projectTitle: group.projectTitle,
+            clearanceProgress: group.clearanceProgress, // ✅ Add this line
+
       members: formattedMembers,
     });
   } catch (error) {
     console.error('Failed to fetch group members:', error.message);
     res.status(500).json({ message: 'Failed to fetch group members', error: error.message });
+  }
+};
+
+export const getGroupMembersByNumber = async (req, res) => {
+  try {
+    const group = await Group.findOne({ groupNumber: req.params.groupNumber }).populate({
+      path: 'members.student',
+      model: 'Student',
+      select: 'studentId fullName role mode status studentClass',
+    });
+
+    if (!group) return res.status(404).json({ message: 'Group not found' });
+
+    const facultyRecord = await Faculty.findOne({ groupId: group._id });
+
+    const formattedMembers = group.members.map((m) => ({
+      _id: m._id,
+      role: m.role,
+      studentId: m.student?.studentId || '',
+      fullName: m.student?.fullName || '',
+      mode: m.student?.mode || '',
+      status: m.student?.status || '',
+      studentClass: m.student?.studentClass || '',
+    }));
+
+    res.json({
+      groupNumber: group.groupNumber,
+      program: group.program,
+      projectTitle: group.projectTitle,
+      clearanceProgress: {
+        faculty: {
+          status: facultyRecord?.status || "Not Started" // ✅ important
+        }
+      },
+      members: formattedMembers,
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Error fetching group by number', error: err.message });
   }
 };

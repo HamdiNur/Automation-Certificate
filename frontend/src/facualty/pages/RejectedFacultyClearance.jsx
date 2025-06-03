@@ -30,28 +30,35 @@ function RejectedFacultyClearance() {
     }
   };
 
-  const handleMarkReadyAgain = async (groupId) => {
-    const confirm = window.confirm("Are you sure you want to mark this request as ready again?");
-    if (!confirm) return;
+const handleMarkReadyAgain = async (groupId) => {
+  const confirm = window.confirm("Are you sure you want to mark this request as ready again?");
+  if (!confirm) return;
 
-    try {
-      await axios.patch(
-        "http://localhost:5000/api/faculty/mark-ready-again",
-        { groupId },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+  const role = localStorage.getItem("role");
+  const route =
+    role === "student"
+      ? "http://localhost:5000/api/faculty/mark-ready-again"
+      : "http://localhost:5000/api/faculty/admin/mark-ready-again";
 
-      alert("✅ Marked as ready again. Status is now 'Pending'.");
-      fetchRejected();
-    } catch (err) {
-      console.error("❌ Error marking ready again:", err.response?.data || err.message);
-      alert("Failed to mark as ready again.");
-    }
-  };
+  try {
+    await axios.patch(
+      route,
+      { groupId },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    alert("✅ Marked as ready again. Status is now 'Pending'.");
+    fetchRejected();
+  } catch (err) {
+    console.error("❌ Error marking ready again:", err.response?.data || err.message);
+    alert("Failed to mark as ready again.");
+  }
+};
+
 
   // Filter rejected groups by search term (group number or project title)
   const filteredRejected = rejected.filter((f) => {

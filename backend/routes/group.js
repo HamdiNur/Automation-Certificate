@@ -7,6 +7,7 @@ import {
   getGroupById,
   getGroupByNumber,
   getGroupMembers,
+  getGroupMembersByNumber,
   getGroupsByClearanceStatus,
   getGroupStatusCount, // ✅ added
   updateClearanceStatus
@@ -18,6 +19,8 @@ router.get('/by-number/:groupNumber', getGroupByNumber);
 router.get('/status/:type/:status', getGroupsByClearanceStatus); 
 router.post('/update-clearance', updateClearanceStatus);
 router.get('/:groupId/students', getGroupMembers);
+router.get('/by-number/:groupNumber/students', getGroupMembersByNumber);
+
 
 router.get('/:id', getGroupById);              // ⚠️ This should stay last
 
