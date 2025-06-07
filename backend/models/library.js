@@ -11,6 +11,18 @@ const librarySchema = new mongoose.Schema({
     thesisBookReveiced: { type: Boolean, default: false },
     thesisBookReceivedDate: Date,
     remarks: String,
+    history: [
+  {
+    status: String,
+    reason: String,
+    actor: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User"
+    },
+    date: Date
+  }
+],
+
     status: { type: String, enum: ['Pending', 'Approved', 'Rejected'], default: 'Pending' },
     clearedAt: Date,
     libraryStaffId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

@@ -114,21 +114,20 @@ export const getPendingFaculty = async (req, res) => {
 
 // 🔹 Approve faculty clearance
 // ✅ Faculty Approval — Group-based logic
-
 export const approveFaculty = async (req, res) => {
   const { groupId } = req.body;
-  const actorId = req.user._id; // ✅ Admin ID from token
+  const actorId = req.user._id;
+  const now = new Date();
 
   try {
-    // ✅ Cast groupId to ObjectId for safe querying
     const faculty = await Faculty.findOne({
       groupId: new mongoose.Types.ObjectId(groupId),
     });
 
-    if (!faculty)
+    if (!faculty) {
       return res.status(404).json({ message: 'Faculty record not found.' });
+    }
 
-    // ✅ Ensure checklist is complete
     if (
       !faculty.printedThesisSubmitted ||
       !faculty.signedFormSubmitted ||
@@ -136,50 +135,47 @@ export const approveFaculty = async (req, res) => {
       !faculty.supervisorCommentsWereCorrected
     ) {
       return res.status(400).json({
-        message:
-          'Missing required documents or supervisor corrections not done.',
+        message: 'Missing required documents or supervisor corrections not done.',
       });
     }
 
-   if (faculty.status === 'Approved') {
-  return res.status(400).json({ message: "Faculty already approved." });
-}
+    if (faculty.status === 'Approved') {
+      return res.status(400).json({ message: "Faculty already approved." });
+    }
 
-// ✅ Mark as approved
-faculty.status = 'Approved';
-faculty.rejectionReason = '';
-faculty.facultyRemarks = '';
-faculty.clearedAt = new Date();
+    // ✅ Mark as approved
+    faculty.status = 'Approved';
+    faculty.rejectionReason = '';
+    faculty.facultyRemarks = '';
+    faculty.clearedAt = now;
 
-// ✅ Avoid duplicate history entries
-const alreadyApproved = faculty.history.some((h) => h.status === 'Approved');
-if (!alreadyApproved) {
-  faculty.history.push({
-    status: 'Approved',
-    reason: 'All required documents verified and approved',
-    actor: actorId,
-    date: new Date(),
-  });
-}
+    const alreadyApproved = faculty.history.some((h) => h.status === 'Approved');
+    if (!alreadyApproved) {
+      faculty.history.push({
+        status: 'Approved',
+        reason: 'All required documents verified and approved',
+        actor: actorId,
+        date: now,
+      });
+    }
 
-await faculty.save();
+    await faculty.save();
 
-
-    // ✅ Update group clearance progress
+    // ✅ Update group progress
     await Group.updateOne(
       { _id: groupId },
       {
         $set: {
           'clearanceProgress.faculty.status': 'Approved',
-          'clearanceProgress.faculty.date': new Date(),
+          'clearanceProgress.faculty.date': now,
         },
       }
     );
 
-    // ✅ Update student clearance for all group members
+    // ✅ Update student clearances in parallel
     const students = await Student.find({ groupId }).select('_id');
 
-    for (const s of students) {
+    await Promise.all(students.map(async (s) => {
       let clearance = await Clearance.findOne({ studentId: s._id });
 
       if (!clearance) {
@@ -187,21 +183,22 @@ await faculty.save();
           studentId: s._id,
           faculty: {
             status: 'Approved',
-            clearedAt: new Date(),
+            clearedAt: now,
             rejectionReason: '',
           },
         });
       } else {
         clearance.faculty.status = 'Approved';
-        clearance.faculty.clearedAt = new Date();
+        clearance.faculty.clearedAt = now;
         clearance.faculty.rejectionReason = '';
       }
 
-      await clearance.save();
-      console.log(`✅ Clearance saved for student ${s._id}`);
-    }
+      return clearance.save();
+    }));
 
-    // ✅ Create or update Library clearance
+    console.log(`✅ Faculty clearance updated for ${students.length} students`);
+
+    // ✅ Create or update library clearance
     let libraryClearance = await Library.findOne({ groupId });
 
     if (!libraryClearance) {
@@ -212,22 +209,33 @@ await faculty.save();
         facultyCleared: true,
         clearedAt: null,
         remarks: '',
-        updatedAt: new Date(),
+        updatedAt: now,
       });
     } else {
       libraryClearance.facultyCleared = true;
-      libraryClearance.updatedAt = new Date();
+      libraryClearance.updatedAt = now;
     }
 
     await libraryClearance.save();
 
-    // ✅ Success response
-    res
-      .status(200)
-      .json({ message: '✅ Faculty approved and Library clearance initialized.' });
+    // ✅ Emit to Library dashboard
+    if (global._io) {
+      global._io.emit("library:new-pending", {
+        groupId,
+        message: "New group ready for Library clearance",
+        timestamp: now,
+      });
+    }
+
+    return res.status(200).json({
+      message: '✅ Faculty approved and Library clearance initialized.',
+    });
   } catch (err) {
     console.error('❌ Faculty approval error:', err);
-    res.status(500).json({ message: 'Approval failed.', error: err.message });
+    return res.status(500).json({
+      message: 'Approval failed.',
+      error: err.message,
+    });
   }
 };
 

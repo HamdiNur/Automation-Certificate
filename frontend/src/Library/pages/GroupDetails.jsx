@@ -13,7 +13,7 @@ function GroupDetails() {
   useEffect(() => {
     const fetchGroup = async () => {
       try {
-        const res = await axios.get(`http://localhost:5000/api/groups/${groupId}`);
+        const res = await axios.get(`http://localhost:5000/api/groups/${groupId}/students`);
         setGroup(res.data);
       } catch (err) {
         console.error("Error fetching group details:", err);
@@ -49,36 +49,46 @@ function GroupDetails() {
 
         <div className="pending-table">
           <h4>👥 Members</h4>
-          <table>
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Student ID</th>
-                <th>Email</th>
-                <th>Clearance Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {group.members.map((student) => (
-                <tr key={student._id}>
-                  <td>{student.fullName}</td>
-                  <td>{student.studentId}</td>
-                  <td>{student.email}</td>
-                  <td>
-                    <span className={`badge ${
-                      student.clearanceStatus === "Approved"
-                        ? "badge-success"
-                        : student.clearanceStatus === "Rejected"
-                        ? "badge-danger"
-                        : "badge-pending"
-                    }`}>
-                      {student.clearanceStatus || "Pending"}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+<table className="min-w-full mt-2 text-sm">
+  <thead>
+    <tr className="bg-gray-100">
+      <th className="p-2 text-left">Student ID</th>
+      <th className="p-2 text-left">Full Name</th>
+      <th className="p-2 text-left">Role</th>
+      <th className="p-2 text-left">Mode</th>
+      <th className="p-2 text-left">Class</th>
+      <th className="p-2 text-left">Student Status</th>
+       <th className="p-2 text-left">Library Clearance</th>
+    </tr>
+  </thead>
+  <tbody>
+    {group.members.map((m, i) => (
+      <tr key={i} className="border-b">
+        <td className="p-2">{m.studentId}</td>
+        <td className="p-2">{m.fullName}</td>
+        <td className="p-2">{m.role}</td>
+        <td className="p-2">{m.mode}</td>
+        <td className="p-2">{m.studentClass}</td>
+        <td className="p-2">{m.status}</td>
+        <td className="p-2">
+          <span className={`badge ${
+            group.clearanceProgress?.faculty?.status === "Approved"
+              ? "badge-success"
+              : group.clearanceProgress?.faculty?.status === "Rejected"
+              ? "badge-danger"
+              : group.clearanceProgress?.faculty?.status === "Pending"
+              ? "badge-warning"
+              : "badge-default"
+          }`}>
+    {group.clearanceProgress?.library?.status || "Not Started"}
+          </span>
+        </td>
+      </tr>
+    ))}
+  </tbody>
+</table>
+
+
         </div>
 
         {group.clearanceProgress && (

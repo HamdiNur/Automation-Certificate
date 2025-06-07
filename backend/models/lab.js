@@ -12,6 +12,8 @@ const labSchema = new mongoose.Schema({
     status: { type: String, enum: ['Pending', 'Approved', 'Rejected'], default: 'Pending' },
     clearedAt: Date,
     approvedBy: String,
+
+    
     updatedAt: { type: Date, default: Date.now }
   });
 

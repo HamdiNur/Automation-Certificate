@@ -241,3 +241,22 @@ table th {
 .badge-danger  { background: #dc3545; color: white; padding: 4px 8px; border-radius: 5px; }
 .badge-warning { background: #ffc107; color: black; padding: 4px 8px; border-radius: 5px; }
 .badge-default { background: #6c757d; color: white; padding: 4px 8px; border-radius: 5px; }
+
+
+.btn-back {
+  display: inline-block; /* Prevent full-width */
+  padding: 8px 16px;
+  color: black;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.3s ease;
+  margin-bottom: 15px;
+}
+
+.btn-back:hover {
+  background-color: #02398bcb; /* Slightly darker blue on hover */
+  color: white;
+}
+

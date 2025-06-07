@@ -5,6 +5,8 @@ import mongoose from 'mongoose';
 import Group from '../models/group.js';
 import Student from '../models/Student.js';
 import Faculty from '../models/faculty.js';
+import Library from '../models/library.js'; // 
+import Lab from '../models/lab.js';     
 import { connectDB } from '../config/db.js';
 import projectTitles from '../utils/data/projectTitles.js';
 
@@ -18,6 +20,9 @@ const seedGroups = async () => {
   try {
     await Group.deleteMany();
     await Faculty.deleteMany();
+    // Add this at the top of seedGroups()
+    await Library.deleteMany();
+    await Lab.deleteMany();  
     await Student.updateMany({}, { $unset: { groupId: '', role: '' } });
 
     console.log('🧹 Previous groups, faculty, and student links cleared');

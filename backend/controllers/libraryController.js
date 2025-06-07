@@ -17,11 +17,12 @@ export const getPendingLibrary = async (req, res) => {
       select: 'fullName studentId email',
       model: 'Student'
     })
-    .populate({
-      path: 'groupId',
-      select: 'groupNumber program faculty',
-      model: 'Group'
-    });
+.populate({
+  path: 'groupId',
+  select: 'groupNumber program faculty projectTitle', // ✅ add this
+  model: 'Group'
+});
+
 
     console.log("📦 Raw Pending Records Found:", pending.length);
     console.log("📦 Sample:", pending.map(p => ({
@@ -64,6 +65,15 @@ export const approveLibrary = async (req, res) => {
     libraryRecord.thesisBookReceivedDate = new Date();
     libraryRecord.libraryStaffId = staffUser._id;
     libraryRecord.clearedAt = new Date();
+
+        // ✅ Add this block BEFORE saving
+    libraryRecord.history = libraryRecord.history || [];
+    libraryRecord.history.push({
+      status: 'Approved',
+      reason: 'Thesis book received',
+      actor: staffUser._id,
+      date: new Date()
+    });
     await libraryRecord.save();
 
     // 3. Update Group clearance progress
@@ -93,6 +103,7 @@ export const approveLibrary = async (req, res) => {
         clearance.library.status = 'Approved';
         clearance.library.clearedAt = new Date();
       }
+      
       await clearance.save();
     }
 
@@ -129,6 +140,13 @@ export const approveLibrary = async (req, res) => {
 /// 🔹 Reject library clearance
 export const rejectLibrary = async (req, res) => {
   const { groupId, remarks } = req.body;
+const { libraryStaffId } = req.body;
+
+const staffUser = await User.findOne({ userId: libraryStaffId });
+if (!staffUser) return res.status(404).json({ message: "Library staff not found." });
+
+const actorId = staffUser._id;
+
   try {
     // 1. Find the Library record
     const library = await Library.findOne({ groupId });
@@ -137,6 +155,15 @@ export const rejectLibrary = async (req, res) => {
     // 2. Update the Library record
     library.status = 'Rejected';
     library.remarks = remarks || 'No remarks';
+
+        // ✅ Add rejection to history
+    library.history = library.history || [];
+    library.history.push({
+      status: 'Rejected',
+      reason: remarks || 'No remarks provided',
+      actor: actorId || null,
+      date: new Date()
+    });
     await library.save();
 
     // 3. Get all students in the group
@@ -166,7 +193,7 @@ export const rejectLibrary = async (req, res) => {
 export const getAllLibraryClearances = async (req, res) => {
   try {
     const records = await Library.find()
-      .populate('groupId', 'groupNumber program faculty')
+      .populate('groupId', 'groupNumber program faculty projectTitle')
       .populate('members', 'fullName studentId email');
     res.status(200).json(records);
   } catch (err) {
@@ -238,17 +265,73 @@ export const getLibraryStats = async (req, res) => {
   }
 };
 
-// export const fixLibraryFlags = async (req, res) => {
-//   try {
-//     const result = await Library.updateMany(
-//       { status: "Pending", facultyCleared: false },
-//       { $set: { facultyCleared: true } }
-//     );
-//     console.log(`✅ Fixed ${result.modifiedCount} library records`);
+// ✅ Resubmit Library Clearance — markReadyAgain
+export const markLibraryReadyAgain = async (req, res) => {
+  const { groupId } = req.body;
+  const actorId = req.user._id;
 
-//     res.status(200).json({ message: "Library flags fixed", updated: result.modifiedCount });
-//   } catch (err) {
-//     console.error("❌ Failed to fix library flags:", err);
-//     res.status(500).json({ message: "Fix failed", error: err.message });
-//   }
-// };
+  try {
+    const library = await Library.findOne({ groupId });
+    if (!library) return res.status(404).json({ message: "Library record not found." });
+
+    if (library.status !== "Rejected") {
+      return res.status(400).json({ message: "Only rejected library clearances can be resubmitted." });
+    }
+
+    // Reset status
+    library.status = "Pending";
+    library.remarks = "";
+    library.thesisBookReveiced = false;
+    library.thesisBookReceivedDate = null;
+    library.clearedAt = null;
+
+    // Add history record (initialize if missing)
+    if (!Array.isArray(library.history)) {
+      library.history = [];
+    }
+
+    library.history.push({
+      status: "Pending",
+      actor: actorId,
+      reason: "Resubmission after rejection",
+      date: new Date()
+    });
+
+    await library.save();
+
+    // Update Group clearanceProgress
+    await Group.updateOne(
+      { _id: groupId },
+      {
+        $set: {
+          "clearanceProgress.library.status": "Pending",
+          "clearanceProgress.library.date": new Date()
+        }
+      }
+    );
+
+    return res.status(200).json({ message: "Library marked ready again." });
+
+  } catch (err) {
+    console.error("❌ markReadyAgain error:", err);
+    return res.status(500).json({ message: "Resubmission failed", error: err.message });
+  }
+};
+
+
+// ✅ View library clearance history
+export const getLibraryHistory = async (req, res) => {
+  const { groupId } = req.params;
+
+  try {
+    const library = await Library.findOne({ groupId })
+      .populate('history.actor', 'fullName role');
+
+    if (!library) return res.status(404).json({ message: "Library record not found" });
+
+    return res.status(200).json({ history: library.history || [] });
+  } catch (err) {
+    console.error("❌ Error fetching library history:", err);
+    res.status(500).json({ message: "Failed to fetch history", error: err.message });
+  }
+};

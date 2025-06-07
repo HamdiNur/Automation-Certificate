@@ -1,5 +1,8 @@
 import React, { useEffect, useState, useCallback } from "react";
 import axios from "axios";
+import { io } from "socket.io-client";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import LibrarySidebar from "../components/LibrarySidebar";
 import "./styles/style.css";
 
@@ -8,8 +11,6 @@ function LibraryDashboard() {
   const [pending, setPending] = useState([]);
   const [search, setSearch] = useState("");
   const [expandedRow, setExpandedRow] = useState(null);
-
-  // Track groupId currently approving to disable button & show loading text
   const [loadingApproveId, setLoadingApproveId] = useState(null);
 
   const BASE_URL = "http://localhost:5000/api/library";
@@ -29,10 +30,13 @@ function LibraryDashboard() {
 
   const fetchPending = useCallback(async () => {
     try {
-      const res = await axios.get(`${BASE_URL}/pending`, {
-        params: { search: search.trim() }
-      });
-      setPending(res.data);
+      const res = await axios.get(`${BASE_URL}/pending`);
+      const allPending = res.data;
+      const filtered = allPending.filter((rec) =>
+        `${rec.groupId?.groupNumber || ""}`.toLowerCase().includes(search.toLowerCase()) ||
+        `${rec.groupId?.projectTitle || ""}`.toLowerCase().includes(search.toLowerCase())
+      );
+      setPending(filtered);
     } catch (err) {
       console.error("Error fetching pending records", err);
     }
@@ -43,27 +47,44 @@ function LibraryDashboard() {
     fetchPending();
   }, [fetchPending]);
 
+  // ✅ Setup socket listener
+  useEffect(() => {
+    const socket = io("http://localhost:5000");
+
+    socket.on("connect", () => {
+      console.log("📡 Library Socket connected:", socket.id);
+    });
+
+    socket.on("library:new-pending", (data) => {
+      console.log("📢 New group pending for library:", data);
+      fetchPending();
+      fetchStats();
+      toast.info("📚 New group ready for Library clearance!");
+    });
+
+    return () => socket.disconnect();
+  }, [fetchPending]);
+
   const handleApprove = async (groupId) => {
     try {
-      setLoadingApproveId(groupId); // disable button and show "Approving..."
+      setLoadingApproveId(groupId);
       const staffId = localStorage.getItem("userId");
       await axios.post(`${BASE_URL}/approve`, {
         groupId,
-        libraryStaffId: staffId
+        libraryStaffId: staffId,
       });
 
-      // Optimistically update UI:
       setPending((prev) => prev.filter(item => item.groupId._id !== groupId));
       setStats(prev => ({
         ...prev,
         approved: prev.approved + 1,
         pending: prev.pending - 1
       }));
-
       setExpandedRow(null);
+      toast.success("✅ Group approved successfully.");
     } catch (err) {
       console.error("Approval failed:", err.response?.data || err.message);
-      alert("Approval failed. Please try again.");
+      toast.error("❌ Approval failed.");
     } finally {
       setLoadingApproveId(null);
     }
@@ -76,15 +97,17 @@ function LibraryDashboard() {
     try {
       await axios.post(`${BASE_URL}/reject`, {
         groupId,
-        remarks
+        remarks,
+        libraryStaffId: localStorage.getItem("userId")
       });
-      // After reject, refresh list & stats
+
       await fetchPending();
       await fetchStats();
       setExpandedRow(null);
+      toast.error("❌ Group rejected.");
     } catch (err) {
       console.error("Rejection failed:", err);
-      alert("Rejection failed. Please try again.");
+      toast.error("Rejection failed. Please try again.");
     }
   };
 
@@ -94,9 +117,6 @@ function LibraryDashboard() {
       <div className="dashboard-main">
         <header className="dashboard-header">
           <h2>📚 Library Dashboard</h2>
-          <div className="staff-info">
-            <p><strong>George Brown</strong><br /><span>Library Staff</span></p>
-          </div>
         </header>
 
         <section className="stats-boxes">
@@ -114,17 +134,13 @@ function LibraryDashboard() {
           </div>
         </section>
 
-        <div className="note-box">
-          <p><strong>⚠ Reminder:</strong> A group can only be cleared after Faculty approval and thesis return.</p>
-        </div>
-
         <div className="search-bar">
           <input
             type="text"
-            placeholder="🔍 Search by group number or student ID"
+            placeholder="🔍 Search by group number or project title"
             value={search}
-            onChange={e => setSearch(e.target.value)}
-            onKeyDown={e => e.key === "Enter" && fetchPending()}
+            onChange={(e) => setSearch(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && fetchPending()}
           />
           <button onClick={fetchPending}>Search</button>
         </div>
@@ -135,34 +151,31 @@ function LibraryDashboard() {
             <thead>
               <tr>
                 <th>Group</th>
-                <th>Members</th>
-                <th>Faculty cleared</th>
+                <th>Project Title</th>
+                <th>Faculty Cleared</th>
                 <th>Thesis Received</th>
                 <th>Status</th>
-                <th>Note</th>
-                <th>Actions</th>
+                <th>Action</th>
               </tr>
             </thead>
             <tbody>
               {pending.length === 0 ? (
-                <tr><td colSpan="7">🎉 No pending records found</td></tr>
+                <tr>
+                  <td colSpan="6">🎉 No pending records found</td>
+                </tr>
               ) : (
-                pending.map(rec => (
+                pending.map((rec) => (
                   <React.Fragment key={rec._id}>
                     <tr>
-                      <td>{rec.groupId?.groupNumber || "-"}</td>
+                      <td>{rec.groupId?.groupNumber ? `Group ${rec.groupId.groupNumber}` : "-"}</td>
+                      <td>{rec.groupId?.projectTitle || "—"}</td>
                       <td>
-                        {rec.members.map(m => (
-                          <div key={m._id} className="member-name">{m.fullName}</div>
-                        ))}
-                      </td>
-                      <td>
-                        <span className={`badge ${rec.facultyCleared ? 'badge-success' : 'badge-danger'}`}>
+                        <span className={`badge ${rec.facultyCleared ? "badge-success" : "badge-danger"}`}>
                           {rec.facultyCleared ? "Cleared" : "Pending"}
                         </span>
                       </td>
                       <td>
-                        <span className={`badge ${rec.thesisBookReveiced ? 'badge-success' : 'badge-danger'}`}>
+                        <span className={`badge ${rec.thesisBookReveiced ? "badge-success" : "badge-danger"}`}>
                           {rec.thesisBookReveiced ? "Received" : "Missing"}
                         </span>
                       </td>
@@ -174,7 +187,6 @@ function LibraryDashboard() {
                           {rec.status}
                         </span>
                       </td>
-                      <td>{rec.remarks || "—"}</td>
                       <td>
                         <button
                           className="btn-view"
@@ -189,15 +201,11 @@ function LibraryDashboard() {
 
                     {expandedRow === rec._id && (
                       <tr>
-                        <td colSpan="7">
-                          <div style={{
-                            backgroundColor: "#f9f9f9",
-                            padding: "15px",
-                            borderRadius: "8px"
-                          }}>
+                        <td colSpan="6">
+                          <div style={{ backgroundColor: "#f9f9f9", padding: "15px", borderRadius: "8px" }}>
                             <p><strong>📘 Members:</strong></p>
                             <ul>
-                              {rec.members.map(m => (
+                              {rec.members.map((m) => (
                                 <li key={m._id}>{m.fullName} ({m.studentId})</li>
                               ))}
                             </ul>
@@ -229,6 +237,8 @@ function LibraryDashboard() {
           </table>
         </div>
       </div>
+
+      <ToastContainer position="top-right" autoClose={3000} />
     </div>
   );
 }

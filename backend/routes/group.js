@@ -12,9 +12,12 @@ import {
   getGroupStatusCount, // ✅ added
   updateClearanceStatus
 } from '../controllers/groupController.js';
+import { getLibraryHistory } from '../controllers/libraryController.js';
 
 router.get('/', getAllGroups);                 
 router.get('/status-count', getGroupStatusCount); // ✅ added
+router.get('/history/:groupId', getLibraryHistory); // 🔥 Add this route
+
 router.get('/by-number/:groupNumber', getGroupByNumber);
 router.get('/status/:type/:status', getGroupsByClearanceStatus); 
 router.post('/update-clearance', updateClearanceStatus);

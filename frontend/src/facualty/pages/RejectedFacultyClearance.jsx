@@ -62,11 +62,19 @@ const handleMarkReadyAgain = async (groupId) => {
 
   // Filter rejected groups by search term (group number or project title)
   const filteredRejected = rejected.filter((f) => {
-    const groupNumber = f.groupId?.groupNumber?.toString() || "";
-    const projectTitle = f.groupId?.projectTitle?.toLowerCase() || "";
-    const search = searchTerm.toLowerCase();
-    return groupNumber.includes(search) || projectTitle.includes(search);
-  });
+   const groupNumber = f.groupId?.groupNumber?.toString() || "";
+  const projectTitle = f.groupId?.projectTitle?.toLowerCase() || "";
+  const search = searchTerm.trim().toLowerCase();
+
+  // Check if user is searching for group by number or "group 2" style
+  const matchExactGroup =
+    search === groupNumber || search === `group ${groupNumber}` || search === `group${groupNumber}`;
+
+  // Check if it matches project title
+  const matchTitle = projectTitle.includes(search);
+
+  return matchExactGroup || matchTitle;
+});
 
   return (
     <div className="dashboard-wrapper">

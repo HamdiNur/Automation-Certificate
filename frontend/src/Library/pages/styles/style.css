@@ -489,3 +489,43 @@ body, html {
   background-color: #ffc107; /* yellow */
   color: #212529;
 }
+
+.badge.clickable {
+  cursor: pointer;
+  background-color: #ffc107;
+  color: #000;
+  border: none;
+  padding: 5px 12px;
+  border-radius: 8px;
+  font-weight: bold;
+  transition: all 0.2s ease-in-out;
+}
+
+.badge.clickable:hover {
+  background-color: #e0a800;
+}
+
+.search-bar input:hover,
+.search-bar input:focus {
+  border-color: #2563eb; /* Tailwind blue-600 */
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.3); /* Subtle blue glow */
+}
+
+/* Back Button Style */
+.btn-back {
+  display: inline-block; /* Prevent full-width */
+  padding: 8px 16px;
+  color: black;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.3s ease;
+  margin-bottom: 15px;
+}
+
+.btn-back:hover {
+  background-color: #02398bcb; /* Slightly darker blue on hover */
+  color: white;
+}
