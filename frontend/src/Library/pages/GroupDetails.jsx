@@ -44,7 +44,7 @@ function GroupDetails() {
 
         <div className="group-info">
           <p><strong>Program:</strong> {group.program}</p>
-          <p><strong>Faculty:</strong> {group.faculty}</p>
+<p><strong>Project Title:</strong> {group.projectTitle}</p>
         </div>
 
         <div className="pending-table">

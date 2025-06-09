@@ -46,3 +46,24 @@
     cursor: pointer;
   }
   
+
+  .badge-warning {
+  background-color: #ffc107;
+  color: white;
+}
+.badge-info {
+  background-color: #0984f7;
+;
+  color: white;
+  padding: 5px 10px;
+  border-radius: 20px;
+  font-weight: 500;
+}
+
+.badge-danger {
+  background-color: #dc3545;
+  color: white;
+  padding: 5px 10px;
+  border-radius: 20px;
+  font-weight: 500;
+}

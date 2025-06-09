@@ -19,12 +19,12 @@ dotenv.config();
 await connectDB();
 
 // 📌 Constants
-const TOTAL_STUDENTS = 200;
-const FULLTIME_COUNT = 140;
-const PARTTIME_COUNT = 60;
+const TOTAL_STUDENTS = 240;
+const FULLTIME_COUNT = 168;
+const PARTTIME_COUNT = 72;
 
-const MALE_COUNT = 110;
-const FEMALE_COUNT = 90;
+const MALE_COUNT = 132;
+const FEMALE_COUNT = 108;
 
 const PROGRAM = "Bachelor of Science in Computer Applications";
 const FACULTY = getFacultyByProgram(PROGRAM);
@@ -107,7 +107,7 @@ const seedStudents = async () => {
     }
 
     await Student.insertMany(students);
-    console.log('✅ Seeded 200 students (140 full-time, 60 part-time) with mixed genders across classes');
+    console.log('✅ Seeded 214 students (168 full-time, 72 part-time) with mixed genders across classes');
     process.exit();
   } catch (error) {
     console.error('❌ Error seeding students:', error.message);

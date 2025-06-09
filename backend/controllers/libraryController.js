@@ -126,10 +126,28 @@ export const approveLibrary = async (req, res) => {
       labClearance.returnedItems = '';
       labClearance.updatedAt = new Date();
     }
+    
 
     await labClearance.save();
+    
+// ✅ Emit socket to Lab if Faculty already approved
+const firstStudent = await Student.findOne({ groupId }).select('_id');
+const clearance = await Clearance.findOne({ studentId: firstStudent._id });
 
-    res.status(200).json({ message: 'Library approved and Lab clearance initialized.' });
+if (clearance?.faculty?.status === 'Approved') {
+  if (global._io) {
+    global._io.emit('lab:new-eligible', {
+      groupId,
+      message: "✅ Group is now eligible for Lab clearance",
+      timestamp: new Date()
+    });
+    console.log("📢 Emitted lab:new-eligible socket for group:", groupId);
+  }
+}
+
+// ✅ Final response
+res.status(200).json({ message: 'Library approved and Lab clearance initialized.' });
+
 
   } catch (err) {
     console.error("❌ Library approval error:", err);

@@ -52,7 +52,18 @@ const projectTitles = [
   "Mobile Complaint System for Public Transport Services",
   "Hospital Bed Availability and Queue Management System",
   "Online Platform for Thesis Peer Review & Feedback",
-  "Disaster-Relief Resource Management Dashboard"
+  "Disaster-Relief Resource Management Dashboard",
+
+  "IoT-Based Air Quality Monitoring and Alert System",
+  "Smart Parking System with Real-Time Slot Availability",
+  "IoT-Enabled Energy Consumption Tracker for Homes",
+  "Smart Irrigation System Using Weather and Soil Data",
+  "IoT-Based Elderly Fall Detection and Emergency Alert Device",
+  "IoT-Powered Smart Classroom Environment Monitor (Temp, Light, CO₂)",
+  "Fleet Management System with Real-Time Tracking via IoT",
+  "IoT-Driven Smart Refrigerator with Inventory Alerts",
+  "Smart Street Lighting System Based on Motion and Light Sensors",
+  "IoT-Based Pet Health and Activity Monitoring System"
 ];
 
 export default projectTitles;

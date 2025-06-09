@@ -10,13 +10,21 @@ import {
   approveLab,
   rejectLab,
   getLabProfile,
+
+  markLabReadyAgain,
 } from '../controllers/labController.js';
+import studentAuth from '../middleware/studentAuth.js';
+import auth from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
 router.get('/', getAllLabClearances);
 router.get('/pending', getPendingLab);
 router.get('/stats', getLabStats);
+router.patch('/mark-ready-again', studentAuth, markLabReadyAgain);         // Student resubmit
+router.patch('/admin/mark-ready-again', auth, markLabReadyAgain);     
+
+
 // Add this line to your lab routes:
 router.get('/profile',  getLabProfile);
 

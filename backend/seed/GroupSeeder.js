@@ -5,10 +5,12 @@ import mongoose from 'mongoose';
 import Group from '../models/group.js';
 import Student from '../models/Student.js';
 import Faculty from '../models/faculty.js';
-import Library from '../models/library.js'; // 
-import Lab from '../models/lab.js';     
+import Library from '../models/library.js';
+import Lab from '../models/lab.js';
 import { connectDB } from '../config/db.js';
+
 import projectTitles from '../utils/data/projectTitles.js';
+import projectItemMap from '../utils/data/projectItemMap.js';
 
 await connectDB();
 
@@ -20,12 +22,11 @@ const seedGroups = async () => {
   try {
     await Group.deleteMany();
     await Faculty.deleteMany();
-    // Add this at the top of seedGroups()
     await Library.deleteMany();
-    await Lab.deleteMany();  
+    await Lab.deleteMany();
     await Student.updateMany({}, { $unset: { groupId: '', role: '' } });
 
-    console.log('🧹 Previous groups, faculty, and student links cleared');
+    console.log('🧹 Cleared previous groups, faculty, library, and lab records');
 
     const year = 2021;
     const students = await Student.find({ yearOfAdmission: year });
@@ -42,6 +43,7 @@ const seedGroups = async () => {
       const members = shuffled.slice(i * groupSize, i * groupSize + groupSize);
       const title = projectTitles[i];
 
+      // ➤ 1. Create group
       const group = await Group.create({
         groupNumber: i + 1,
         admissionYear: year,
@@ -54,11 +56,11 @@ const seedGroups = async () => {
         })),
         phaseOneCleared: false,
         overallStatus: 'Pending',
-        clearanceProgress: {
-        },
+        clearanceProgress: {},
         clearedAt: null
       });
 
+      // ➤ 2. Link students to group
       for (let j = 0; j < members.length; j++) {
         await Student.findByIdAndUpdate(members[j]._id, {
           groupId: group._id,
@@ -66,10 +68,24 @@ const seedGroups = async () => {
         });
       }
 
+      // ➤ 3. Create corresponding lab record with expectedItems
+     const expected = projectItemMap[title] || [];
+const isIotProject = expected.length > 0;
+
+await Lab.create({
+  groupId: group._id,
+  members: members.map(m => m._id),
+  expectedItems: expected,
+  returnedItems: isIotProject ? [] : ['Not Required'],
+  status: 'Pending',
+  issues: isIotProject ? '' : 'No lab items required',
+});
+
+
       console.log(`📦 Group ${i + 1} created → ${title}`);
     }
 
-    console.log(`✅ Finished. ${groupCount} groups created.`);
+    console.log(`✅ ${groupCount} groups seeded successfully`);
     process.exit();
   } catch (err) {
     console.error('❌ Seeding error:', err.message);

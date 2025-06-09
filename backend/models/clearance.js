@@ -20,7 +20,7 @@ const clearanceSchema = new mongoose.Schema({
   },
 
   lab: {
-    status: { type: String, enum: ['Pending', 'Approved', 'Rejected'], default: 'Pending' },
+    status: { type: String, enum: ['Pending', 'Approved', 'Rejected','Incomplete'], default: 'Pending' },
     clearedAt: Date
   },
 
