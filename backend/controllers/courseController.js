@@ -132,9 +132,17 @@ export const getAllStudentCourses = async (req, res) => {
   const limit = parseInt(req.query.limit) || 20;
   const skip = (page - 1) * limit;
 
+  const search = req.query.search || "";
+  const searchQuery = {
+    $or: [
+      { studentId: { $regex: search, $options: "i" } },
+      { fullName: { $regex: search, $options: "i" } }
+    ]
+  };
+
   try {
-    const totalStudents = await Student.countDocuments();
-    const students = await Student.find().skip(skip).limit(limit).lean();
+    const totalStudents = await Student.countDocuments(searchQuery);
+    const students = await Student.find(searchQuery).skip(skip).limit(limit).lean();
     const allRecords = [];
 
     for (const student of students) {

@@ -10,7 +10,8 @@ import {
   markReadyAgain,
   getApprovedFacultyGroups,
   getFacultyStatusCount,
-  getRejectedFacultyGroups
+  getRejectedFacultyGroups,
+  getMyGroupFaculty
 } from '../controllers/facultyController.js';
 import studentAuth from '../middleware/studentAuth.js';
 import auth from '../middleware/authMiddleware.js';
@@ -26,6 +27,7 @@ router.get('/pending', auth,getPendingFaculty);
 router.post('/approve',auth, approveFaculty);
 router.post('/reject',auth, rejectFaculty);
 router.get('/rejected', auth, getRejectedFacultyGroups); // ✅ Add this line
+router.get('/my-group', studentAuth, getMyGroupFaculty);
 // For students
 router.patch('/mark-ready-again', studentAuth, markReadyAgain);
 

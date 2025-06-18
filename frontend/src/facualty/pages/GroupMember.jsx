@@ -84,7 +84,7 @@ function GroupMembersPage() {
       🔙 Back to Approved
     </button>
   )}
-
+       <h2>Search Group Details</h2>
         {/* 🔍 Search Bar (Only if No groupId in URL) */}
         {!groupId && (
           <div className="filter-bar">
@@ -116,6 +116,7 @@ function GroupMembersPage() {
             <table className="min-w-full mt-2 text-sm">
               <thead>
                 <tr className="bg-gray-100">
+                  
                   <th className="p-2 text-left">Student ID</th>
                   <th className="p-2 text-left">Full Name</th>
                   <th className="p-2 text-left">Role</th>

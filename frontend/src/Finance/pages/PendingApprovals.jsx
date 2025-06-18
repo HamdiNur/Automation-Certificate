@@ -1,18 +1,44 @@
-// 📁 src/Finance/pages/PendingApprovals.jsx
 import React, { useEffect, useState } from "react";
 import axios from "axios";
+import { io } from "socket.io-client"; // ✅ Socket
+import { ToastContainer, toast } from "react-toastify"; // ✅ Toast
+import "react-toastify/dist/ReactToastify.css"; // ✅ Toast CSS
 import FinanceSidebar from "../components/FinanceSidebar";
 import "./PendingApprovals.css";
 
 function PendingApprovals() {
   const [pendingRecords, setPendingRecords] = useState([]);
-  const [loading, setLoading] = useState(true); // ✅ Loading state
+  const [loading, setLoading] = useState(true);
+
+  const fetchPendingRecords = async () => {
+    try {
+      const res = await axios.get("http://localhost:5000/api/finance/pending");
+      setPendingRecords(res.data);
+    } catch (err) {
+      console.error("Error reloading pending finance records", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    axios.get("http://localhost:5000/api/finance/pending")
-      .then(res => setPendingRecords(res.data))
-      .catch(err => console.error("Error loading pending records", err))
-      .finally(() => setLoading(false)); // ✅ Stop loading
+    fetchPendingRecords();
+
+    const socket = io("http://localhost:5000");
+
+    socket.on("connect", () => {
+      console.log("✅ Connected to finance socket:", socket.id);
+    });
+
+    socket.on("finance:new-charge", (data) => {
+      console.log("📡 New finance charge received:", data);
+      fetchPendingRecords();
+      toast.info("📢 New finance charge received for a student!");
+    });
+
+    return () => {
+      socket.disconnect();
+    };
   }, []);
 
   const handleApprove = async (studentId) => {
@@ -53,6 +79,8 @@ function PendingApprovals() {
           <table className="pending-table">
             <thead>
               <tr>
+                                  <th>No.</th> {/* 🆕 Add this */}
+
                 <th>Student ID</th>
                 <th>Name</th>
                 <th>Description</th>
@@ -65,6 +93,8 @@ function PendingApprovals() {
             <tbody>
               {pendingRecords.map((record, index) => (
                 <tr key={index}>
+                          <td>{index + 1}</td> {/* 🆕 Show index here */}
+
                   <td>{record.studentId}</td>
                   <td>{record.fullName}</td>
                   <td>{record.description}</td>
@@ -81,6 +111,9 @@ function PendingApprovals() {
           </table>
         )}
       </div>
+
+      {/* ✅ Toast container */}
+      <ToastContainer position="top-right" autoClose={3000} />
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import Examination from '../models/examination.js';
-import Clearance from '../models/Clearance.js';
+import Clearance from '../models/clearance.js';
 import CourseRecord from '../models/course.js';
 import Student from '../models/Student.js';
 import Appointment from '../models/appointment.js'; // ✅ Added f appointment handling
@@ -15,6 +15,7 @@ export const getPendingExamination = async (req, res) => {
       "lab.status": "Approved",
       "finance.status": "Approved"
     }).populate("studentId");
+
 
     // Get only student IDs
     const eligibleIds = students.map((clr) => clr.studentId?._id).filter(Boolean);
@@ -45,7 +46,7 @@ export const approveExamination = async (req, res) => {
       return res.status(404).json({ message: 'Examination or student record not found.' });
     }
 
-    // ✅ Check if student passed all courses
+    // Check if student passed all courses
     const courseRecords = await CourseRecord.find({ studentId });
     const hasPassedAll = courseRecords.every(c => c.passed);
 
@@ -53,30 +54,56 @@ export const approveExamination = async (req, res) => {
       return res.status(400).json({ message: 'Student has not met graduation criteria.' });
     }
 
-    // ✅ Check if name correction was requested
-    const nameCorrectionRequested = student.nameCorrectionRequested === true;
-
-    if (nameCorrectionRequested) {
-      const { passportUploaded } = exam.requiredDocs || {};
-      if (!passportUploaded) {
-        return res.status(400).json({
-          message: 'Name correction requires a valid passport upload.'
-        });
-      }
-
-      // ✅ Mark student as nameVerified if passport uploaded
-      student.nameVerified = true;
-      await student.save();
+    // 🔒 Enforce decision presence
+    if (student.nameCorrectionRequested === undefined || student.nameCorrectionRequested === null) {
+      return res.status(400).json({
+        message: 'You must confirm if a name correction is requested.'
+      });
     }
 
-    // ✅ Update examination record
+    // ✅ Case: No name correction requested
+    if (student.nameCorrectionRequested === false) {
+      // Do nothing, continue to approve
+    }
+
+    // ❌ Case: Name correction requested but missing data
+  else if (
+  student.nameCorrectionRequested === true &&
+  (
+    !student.requestedName ||
+    exam?.requiredDocs?.passportVerified !== true
+  )
+) {
+  return res.status(400).json({
+    message: 'Name correction requested but either requested name or passport document is missing or not verified.'
+  });
+}
+
+    // ✅ Case: Name correction requested and valid
+    else if (
+      student.nameCorrectionRequested === true &&
+      student.requestedName &&
+      exam?.requiredDocs?.passportUploaded === true
+    ) {
+      student.fullName = student.requestedName;
+      student.nameVerified = true;
+      student.requestedName = '';
+      await student.save();
+
+      await Examination.findOneAndUpdate(
+        { studentId },
+        { nameConfirmed: true }
+      );
+    }
+
+    // ✅ Update exam clearance
     const now = new Date();
     exam.clearanceStatus = 'Approved';
     exam.clearedAt = now;
     exam.finalDecisionBy = approvedBy;
     await exam.save();
 
-    // ✅ Update clearance status
+    // ✅ Update clearance record
     await Clearance.updateOne(
       { studentId },
       {
@@ -88,7 +115,7 @@ export const approveExamination = async (req, res) => {
       }
     );
 
-    // ✅ Schedule appointment if not already existing
+    // 🕒 Check & create appointment (if not exists)
     const existing = await Appointment.findOne({ studentId });
     if (!existing) {
       const appointmentDate = new Date();
@@ -102,11 +129,46 @@ export const approveExamination = async (req, res) => {
     }
 
     res.status(200).json({
-      message: 'Examination approved and appointment scheduled.'
+      message: '✅ Examination approved successfully and appointment scheduled.'
     });
 
   } catch (err) {
-    res.status(500).json({ message: 'Failed to approve examination.', error: err.message });
+    res.status(500).json({
+      message: '❌ Failed to approve examination.',
+      error: err.message
+    });
+  }
+};
+
+
+
+// Approve only name correction
+export const approveNameCorrection = async (req, res) => {
+  const { studentId } = req.body;
+
+  try {
+    const student = await Student.findById(studentId);
+    if (!student) return res.status(404).json({ message: 'Student not found' });
+
+    if (!student.nameCorrectionRequested) {
+      return res.status(400).json({ message: 'No name correction request found' });
+    }
+
+    // Update student's full name to the requested name
+    student.fullName = student.requestedName;
+    student.nameVerified = true;
+    student.requestedName = ''; // Optionally clear the requested name
+    await student.save();
+
+    // Update examination record for name confirmation
+    await Examination.findOneAndUpdate(
+      { studentId },
+      { nameConfirmed: true }
+    );
+
+    res.status(200).json({ message: '✅ Name correction approved and full name updated' });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to approve name correction', error: err.message });
   }
 };
 
@@ -225,7 +287,7 @@ export const requestNameCorrection = async (req, res) => {
 
 // 🆕 Upload verification document (passport/school cert)
 export const uploadNameCorrectionDoc = async (req, res) => {
-  const { studentId } = req.body;
+  const { studentId, requestedName } = req.body;
   const file = req.file;
 
   if (!file) return res.status(400).json({ message: 'No file uploaded' });
@@ -234,9 +296,15 @@ export const uploadNameCorrectionDoc = async (req, res) => {
     const exam = await Examination.findOne({ studentId });
     if (!exam) return res.status(404).json({ message: 'Examination record not found' });
 
+    // ✅ Save document to exam
     exam.nameCorrectionDoc = file.path;
     exam.requiredDocs.passportUploaded = true;
     await exam.save();
+
+    // ✅ Save requested name to student
+    await Student.findByIdAndUpdate(studentId, {
+      requestedName
+    });
 
     res.status(200).json({
       message: 'Document uploaded successfully',
@@ -246,6 +314,7 @@ export const uploadNameCorrectionDoc = async (req, res) => {
     res.status(500).json({ message: 'Upload failed', error: err.message });
   }
 };
+
 
 export const getFullyClearedStudents = async (req, res) => {
   try {
@@ -263,13 +332,12 @@ export const getFullyClearedStudents = async (req, res) => {
 };
 
 //🔹 Dashboard Stats for Examination Officer
+// 🔹 Dashboard Stats for Examination Officer
 export const getExaminationStats = async (req, res) => {
   try {
-    const truePending = await Clearance.countDocuments({
-      "faculty.status": "Approved",
-      "library.status": "Approved",
-      "lab.status": "Approved",
-      "finance.status": "Approved"
+    // ✅ Only count true pending examination records
+    const truePending = await Examination.countDocuments({
+      clearanceStatus: "Pending"
     });
 
     // ✅ Fetch name corrections with valid student references
@@ -280,13 +348,17 @@ export const getExaminationStats = async (req, res) => {
     const validNameCorrections = nameCorrectionsWithStudent.filter(e => e.studentId != null);
     const nameCorrections = validNameCorrections.length;
 
-    const approved = await Examination.countDocuments({ clearanceStatus: "Approved" });
+    // ✅ Count approved examinations
+    const approved = await Examination.countDocuments({
+      clearanceStatus: "Approved"
+    });
 
     res.status(200).json({
       pending: truePending,
       nameCorrections,
       approved
     });
+
   } catch (err) {
     res.status(500).json({ message: "Failed to fetch examination stats", error: err.message });
   }
@@ -448,3 +520,26 @@ export const checkCertificateEligibility = async (req, res) => {
     });
   }
 };
+
+
+// // Get all name correction requests with student + document
+// export const getNameCorrectionRequests = async (req, res) => {
+//   try {
+//     const corrections = await Examination.find({
+//       nameCorrectionDoc: { $exists: true, $ne: null }
+//     }).populate("studentId");
+
+//     const result = corrections.map((e) => ({
+//       studentId: e.studentId?.studentId || "N/A",
+//       fullName: e.studentId?.fullName || "N/A",
+//       requestedName: e.studentId?.requestedName || "N/A",
+//       correctionUploadUrl: e.nameCorrectionDoc || "",
+//       nameVerified: e.studentId?.nameVerified || false,
+//       _id: e.studentId?._id
+//     }));
+
+//     res.status(200).json(result);
+//   } catch (err) {
+//     res.status(500).json({ message: "Failed to fetch correction requests", error: err.message });
+//   }
+// };

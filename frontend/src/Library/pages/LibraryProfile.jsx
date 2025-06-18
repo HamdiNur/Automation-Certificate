@@ -1,25 +1,39 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
 import LibrarySidebar from "../components/LibrarySidebar";
+import SkeletonProfile from"../../components/loaders/SkeletonProfile"; // adjust the path if needed
+
 import "./styles/style.css";
 
 function LibraryProfile() {
   const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [editMode, setEditMode] = useState(false);
   const [temp, setTemp] = useState({});
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchProfile = async () => {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        setError("No token found. Please log in.");
+        setLoading(false);
+        return;
+      }
+
       try {
-        const token = localStorage.getItem("token");
-        const res = await axios.get("http://localhost:5000/api/users/profile", {
-          headers: { Authorization: `Bearer ${token}` },
+        const res = await fetch("http://localhost:5000/api/users/profile", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         });
-        setProfile(res.data.user);
-        setTemp(res.data.user);
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Failed to fetch profile");
+
+        setProfile(data.user);
+        setTemp(data.user);
       } catch (err) {
-        console.error("Error fetching profile", err);
+        setError(err.message);
       } finally {
         setLoading(false);
       }
@@ -31,11 +45,8 @@ function LibraryProfile() {
   const saveProfile = () => {
     setProfile(temp);
     setEditMode(false);
-    // Optional: send PUT request to backend here
+    // Optional: send PUT request to backend
   };
-
-  if (loading) return <div className="dashboard-main">Loading profile...</div>;
-  if (!profile) return <div className="dashboard-main">Profile not found.</div>;
 
   return (
     <div className="dashboard-wrapper">
@@ -43,44 +54,48 @@ function LibraryProfile() {
       <div className="dashboard-main">
         <h2>My Profile</h2>
 
-        <div className="student-card">
-          {!editMode ? (
-            <>
-              <p><strong>Name:</strong> {profile.fullName}</p>
-              <p><strong>Username:</strong> {profile.username}</p>
-              <p><strong>Email:</strong> {profile.email}</p>
-              <p><strong>Role:</strong> {profile.role}</p>
-              <button className="btn-view" onClick={() => setEditMode(true)}>
-                Edit Profile
-              </button>
-            </>
-          ) : (
-            <>
-              <input
-                type="text"
-                value={temp.fullName}
-                onChange={(e) => setTemp({ ...temp, fullName: e.target.value })}
-                placeholder="Full Name"
-              />
-              <input
-                type="text"
-                value={temp.username}
-                onChange={(e) => setTemp({ ...temp, username: e.target.value })}
-                placeholder="Username"
-              />
-              <input
-                type="email"
-                value={temp.email}
-                onChange={(e) => setTemp({ ...temp, email: e.target.value })}
-                placeholder="Email"
-              />
-              <div className="modal-buttons">
-                <button className="btn-confirm" onClick={saveProfile}>Save</button>
-                <button className="btn-cancel" onClick={() => setEditMode(false)}>Cancel</button>
-              </div>
-            </>
-          )}
-        </div>
+        {loading ? (
+  <SkeletonProfile />
+        ) : error ? (
+          <p style={{ color: "red" }}>❌ {error}</p>
+        ) : (
+          <div className="student-card">
+            {!editMode ? (
+              <>
+                <p><strong>Name:</strong> {profile.fullName}</p>
+                <p><strong>Username:</strong> {profile.username}</p>
+                <p><strong>Email:</strong> {profile.email}</p>
+                <p><strong>Role:</strong> {profile.role}</p>
+                <button className="btn-view" onClick={() => setEditMode(true)}>Edit Profile</button>
+              </>
+            ) : (
+              <>
+                <input
+                  type="text"
+                  value={temp.fullName}
+                  onChange={(e) => setTemp({ ...temp, fullName: e.target.value })}
+                  placeholder="Full Name"
+                />
+                <input
+                  type="text"
+                  value={temp.username}
+                  onChange={(e) => setTemp({ ...temp, username: e.target.value })}
+                  placeholder="Username"
+                />
+                <input
+                  type="email"
+                  value={temp.email}
+                  onChange={(e) => setTemp({ ...temp, email: e.target.value })}
+                  placeholder="Email"
+                />
+                <div className="modal-buttons">
+                  <button className="btn-confirm" onClick={saveProfile}>Save</button>
+                  <button className="btn-cancel" onClick={() => setEditMode(false)}>Cancel</button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

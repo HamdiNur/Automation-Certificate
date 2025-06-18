@@ -1,37 +1,251 @@
-labsider  css      .sidebar-modern {
-    width: 220px;
-    height: 100vh;
-    background-color: #0d2d63;
-    color: white;
-    padding: 20px;
-    position: relative; /* not fixed */
-    flex-shrink: 0;
+.sidebar-modern {
+  height: 100vh;
+  width: 260px;
+  background: linear-gradient(180deg, #1e3a8a 0%, #1e40af 100%);
+  color: white;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+  position: relative;
+}
+
+/* Header */
+.sidebar-header {
+  padding: 15px 20px 10px; /* reduce bottom padding */
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.logo {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: white;
+  text-align: center;
+  letter-spacing: 0.5px;
+}
+
+/* Profile Section */
+.profile-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px 20px; /* reduce top padding here */
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.profile-avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  overflow: hidden;
+  margin-bottom: 15px;
+  border: 3px solid rgba(255, 255, 255, 0.2);
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.avatar-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.profile-name {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 5px 0;
+  text-align: center;
+  color: white;
+}
+
+.profile-role {
+  font-size: 13px;
+  background-color: rgba(255, 255, 255, 0.15);
+  color: white;
+  padding: 4px 12px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  display: inline-block;
+}
+
+.profile-actions {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+}
+
+.action-btn {
+  background-color: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: white;
+  padding: 10px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+}
+
+.action-btn:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+.logout-btn:hover {
+  background-color: rgba(239, 68, 68, 0.3);
+}
+
+/* Navigation */
+.sidebar-content {
+  flex: 1;
+  padding: 20px 0;
+  overflow-y: auto;
+}
+
+.sidebar-links {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-links li {
+  display: flex;
+  align-items: center;
+  margin: 0;
+  position: relative;
+  transition: all 0.3s ease;
+}
+.sidebar-links li + li {
+  margin-top: 6px;
+}
+
+
+.sidebar-links li a {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  text-decoration: none;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 15px;
+  padding: 15px 25px;
+  width: 100%;
+  transition: all 0.3s ease;
+  border-left: 3px solid transparent;
+}
+
+.sidebar-links li:hover a {
+  color: white;
+  background-color: rgba(255, 255, 255, 0.05);
+  border-left-color: rgba(255, 255, 255, 0.3);
+}
+
+.sidebar-links li.active a {
+  color: white;
+  background-color: rgba(255, 255, 255, 0.1);
+  border-left-color: #60a5fa;
+  font-weight: 500;
+}
+
+.sidebar-links li svg {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+/* Hover effects */
+.sidebar-links li:hover {
+  background-color: rgba(255, 255, 255, 0.03);
+}
+
+.sidebar-links li.active {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .sidebar-modern {
+    width: 100%;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 1000;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
   }
-  
-    
-    .sidebar-modern h2.logo {
-      font-size: 22px;
-      margin-bottom: 30px;
-      font-weight: bold;
-    }
-    
-    .sidebar-modern ul {
-      list-style: none;
-      padding: 0;
-    }
-    
-    .sidebar-modern li {
-      display: flex;
-      align-items: center;
-      margin: 20px 0;
-      gap: 10px;
-    }
-    
-    .sidebar-modern a {
-      color: white;
-      text-decoration: none;
-    }
-    
-    .sidebar-modern a:hover {
-      text-decoration: underline;
-    }
+
+  .sidebar-modern.open {
+    transform: translateX(0);
+  }
+}
+
+/* Custom scrollbar */
+.sidebar-content::-webkit-scrollbar {
+  width: 4px;
+}
+
+.sidebar-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+}
+
+.sidebar-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Smooth animations */
+* {
+  box-sizing: border-box;
+}
+
+.sidebar-modern * {
+  transition: all 0.3s ease;
+}
+.sidebar-header {
+  padding: 20px;
+  text-align: center;
+}
+
+.header-icon-title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.icon-badge {
+  background-color: white;
+  padding: 8px 10px;
+  border-radius: 8px; /* ✅ Rounded square */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+
+.icon-inside {
+  font-size: 20px;
+  color: #0d2d63; /* same as your sidebar bg */
+}
+
+.portal-title {
+  margin: 0;
+  font-size: 18px;
+  color: white;
+  font-weight: bold;
+  text-align: left;
+}
+
+.subtitle {
+  margin: 0;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.7);
+  text-align: left;
+}

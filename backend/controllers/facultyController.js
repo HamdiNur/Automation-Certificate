@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 import Faculty from '../models/faculty.js';
-import Clearance from '../models/Clearance.js';
+import Clearance from '../models/clearance.js';
 import Group from '../models/group.js';
 import Student from '../models/Student.js';
 import Library from '../models/library.js';
@@ -444,5 +444,50 @@ export const getRejectedFacultyGroups = async (req, res) => {
   } catch (err) {
     console.error("❌ Failed to fetch rejected faculty groups:", err.message);
     res.status(500).json({ message: "Failed to fetch rejected faculty groups", error: err.message });
+  }
+};
+
+
+
+export const getMyGroupFaculty = async (req, res) => {
+  try {
+    console.log(`📥 getMyGroupFaculty called by student: ${req.user?._id}`);
+
+    const student = await Student.findById(req.user._id).populate('groupId');
+    if (!student) {
+      console.warn("❌ Student not found for the provided token.");
+      return res.status(404).json({ ok: false, message: "Student not found" });
+    }
+
+    if (!student.groupId) {
+      console.warn("❌ Student has no group assigned.");
+      return res.status(200).json({ ok: false, message: "Student is not assigned to any group" });
+    }
+
+    const facultyRecord = await Faculty.findOne({ groupId: student.groupId._id });
+
+    console.log(`📘 Faculty record status for group ${student.groupId._id}: ${facultyRecord?.status || "NO RECORD"}`);
+
+    if (!facultyRecord) {
+      return res.status(200).json({
+        ok: false,
+        message: "No faculty clearance process has been initiated for this group",
+      });
+    }
+
+    return res.status(200).json({
+      ok: true,
+      status: facultyRecord.status, // "Pending" | "Approved" | "Rejected"
+      rejectionReason: facultyRecord.rejectionReason || "",
+      facultyRemarks: facultyRecord.facultyRemarks || "",
+    });
+
+  } catch (err) {
+    console.error("❌ Error in getMyGroupFaculty:", err.message);
+    return res.status(500).json({
+      ok: false,
+      message: "Failed to retrieve faculty clearance status",
+      error: err.message,
+    });
   }
 };

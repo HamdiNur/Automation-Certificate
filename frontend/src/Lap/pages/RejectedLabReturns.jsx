@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import LabSidebar from "../components/LabSidebar";
+import SkeletonTable from "../../components/loaders/skeletonTable"; // adjust path if needed
+
 import "./style/style.css";
 
 function RejectedLabReturns() {
@@ -77,7 +79,7 @@ function RejectedLabReturns() {
 
         {/* 🌀 Loading or Table */}
         {loading ? (
-          <p>Loading rejected lab records...</p>
+<SkeletonTable rows={6} cols={7} />
         ) : filteredRecords.length === 0 ? (
           <p>No rejected lab records found.</p>
         ) : (

@@ -18,6 +18,21 @@ import {
 
 const router = express.Router();
 
+// ✅ Save FCM Token from mobile
+router.post('/fcm-token/:studentId', async (req, res) => {
+  const { token } = req.body;
+  const { studentId } = req.params;
+
+  try {
+    await Student.findByIdAndUpdate(studentId, { fcmToken: token });
+    res.status(200).json({ message: 'Token saved successfully' });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to save token', error: err.message });
+  }
+});
+
+
+
 // 🗂️ Ensure upload folder exists
 const uploadDir = path.join('uploads', 'name-corrections');
 if (!fs.existsSync(uploadDir)) {

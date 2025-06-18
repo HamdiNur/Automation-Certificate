@@ -1,6 +1,6 @@
 import User from '../models/User.js';       // unified user model
 import Library from '../models/library.js';
-import Clearance from '../models/Clearance.js';
+import Clearance from '../models/clearance.js';
 import Group from '../models/group.js';
 import Lab from '../models/lab.js';          // lab clearance model
 import Student from '../models/Student.js'; // student model
@@ -351,5 +351,59 @@ export const getLibraryHistory = async (req, res) => {
   } catch (err) {
     console.error("❌ Error fetching library history:", err);
     res.status(500).json({ message: "Failed to fetch history", error: err.message });
+  }
+};
+
+
+
+export const getMyGroupLibrary = async (req, res) => {
+  try {
+    console.log(`📥 getMyGroupLibrary called by: ${req.user?.id || req.user?.studentId}`);
+
+    // 1️⃣ Try to find the student by either Mongo _id or studentId
+    let student = null;
+
+    if (req.user.id) {
+      student = await Student.findById(req.user.id).populate('groupId');
+    }
+    if (!student && req.user.studentId) {
+      student = await Student.findOne({ studentId: req.user.studentId }).populate('groupId');
+    }
+
+    if (!student) {
+      console.warn("❌ Student not found.");
+      return res.status(404).json({ ok: false, message: "Student not found" });
+    }
+
+    if (!student.groupId) {
+      console.warn("⚠️ Student is not assigned to any group.");
+      return res.status(404).json({ ok: false, message: "Student not assigned to a group" });
+    }
+
+    // 2️⃣ Find library clearance for the student's group
+    const libraryRecord = await Library.findOne({ groupId: student.groupId._id });
+
+    if (!libraryRecord) {
+      console.info("ℹ️ No library record started for this group.");
+      return res.status(200).json({
+        ok: false,
+        message: "No library clearance has been started for this group",
+      });
+    }
+
+    // 3️⃣ Respond with library status and remarks
+    return res.status(200).json({
+      ok: true,
+      status: libraryRecord.status,          // "Pending" | "Approved" | "Rejected"
+      remarks: libraryRecord.remarks || "",
+    });
+
+  } catch (err) {
+    console.error("❌ Error in getMyGroupLibrary:", err.message);
+    return res.status(500).json({
+      ok: false,
+      message: "Failed to retrieve your group’s library clearance status",
+      error: err.message,
+    });
   }
 };

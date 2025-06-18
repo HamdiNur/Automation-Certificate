@@ -7,6 +7,11 @@ function Appointments() {
   const [appointments, setAppointments] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
 
+  const [showReschedule, setShowReschedule] = useState(false);
+  const [selected, setSelected] = useState(null);
+  const [newDate, setNewDate] = useState("");
+  const [reason, setReason] = useState("");
+
   const fetchAppointments = async () => {
     try {
       const res = await axios.get("http://localhost:5000/api/appointments");
@@ -26,6 +31,28 @@ function Appointments() {
     } catch (err) {
       alert("❌ Failed to check in.");
     }
+  };
+
+  const handleReschedule = async () => {
+    if (!newDate || !reason) return alert("Please provide both date and reason.");
+
+    try {
+      await axios.post("http://localhost:5000/api/appointments/reschedule", {
+        studentId: selected.studentId._id,
+        newDate,
+        reason,
+      });
+      alert("✅ Appointment rescheduled!");
+      setShowReschedule(false);
+      setSelected(null);
+      setNewDate("");
+      setReason("");
+      fetchAppointments();
+    }  catch (err) {
+  const msg = err.response?.data?.message || "Failed to reschedule.";
+  alert("❌ " + msg);
+}
+
   };
 
   useEffect(() => {
@@ -60,7 +87,7 @@ function Appointments() {
               <th>Appointment Date</th>
               <th>Status</th>
               <th>Checked In</th>
-              <th>Checked In By</th> 
+              <th>Checked In By</th>
               <th>Rescheduled</th>
               <th>Action</th>
             </tr>
@@ -73,33 +100,84 @@ function Appointments() {
                 <td>{a.studentId?.studentId}</td>
                 <td>{new Date(a.appointmentDate).toLocaleDateString()}</td>
                 <td>{a.status}</td>
-                <td>{a.checkedIn ? "✅" : "❌"}</td>
-                  <td>{a.checkedInBy ? a.checkedInBy.fullName : "—"}</td> {/* ✅ New */}
-
+                <td>{a.checkedIn ? "Yes" : "No"}</td>
+                <td>{a.checkedInBy ? a.checkedInBy.fullName : "—"}</td>
                 <td>{a.rescheduled ? "Yes" : "No"}</td>
                 <td>
-                  {a.status === "scheduled" && !a.checkedIn ? (
-                    <button
-                      className="btn-check"
-                      onClick={() => handleCheckIn(a.studentId._id)}
-                    >
-                      ✅ Check-In
-                    </button>
-                  ) : (
-                    <span style={{ color: "#999" }}>—</span>
-                  )}
+                 {["scheduled", "rescheduled"].includes(a.status) && !a.checkedIn ? (
+  <>
+    <button
+      className="btn-check"
+      onClick={() => handleCheckIn(a.studentId._id)}
+    >
+      ✅ Check-In
+    </button>
+    <button
+      className="btn-reschedule"
+      onClick={() => {
+        setSelected(a);
+        setShowReschedule(true);
+      }}
+    >
+      🗓️ Reschedule
+    </button>
+  </>
+) : (
+  <span style={{ color: "#999" }}>—</span>
+)}
+
                 </td>
               </tr>
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan="8" style={{ textAlign: "center", color: "#777" }}>
+                <td colSpan="9" style={{ textAlign: "center", color: "#777" }}>
                   No appointments found.
                 </td>
               </tr>
             )}
           </tbody>
         </table>
+
+        {/* 🔁 Reschedule Modal */}
+        {showReschedule && selected && (
+          <div className="modal-overlay">
+            <div className="modal">
+              <h3>Reschedule Appointment</h3>
+              <p><strong>Student:</strong> {selected.studentId?.fullName}</p>
+
+              <label>New Date:</label>
+              <input
+                type="date"
+                value={newDate}
+                onChange={(e) => setNewDate(e.target.value)}
+              />
+
+              <label>Reason:</label>
+              <textarea
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="Enter reason for rescheduling..."
+                rows={3}
+              />
+
+             <div className="modal-buttons">
+  <button className="btn-confirm" onClick={handleReschedule}>
+    Confirm
+  </button>
+  <button className="btn-cancel" onClick={() => {
+    setShowReschedule(false);
+    setSelected(null);
+    setNewDate("");
+    setReason("");
+  }}>
+    Cancel
+  </button>
+</div>
+
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -54,6 +54,8 @@ import groupRoutes from './routes/group.js';
 import notificationRoutes from './routes/notification.js';
 import clearanceRoutes from './routes/clearance.js';
 import courseRoutes from './routes/course.js';
+import chatRoutes from './routes/chatRoutes.js';
+
 
 // Connect to DB
 connectDB();
@@ -71,6 +73,9 @@ app.use('/api/groups', groupRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/clearance', clearanceRoutes);
 app.use('/api/courses', courseRoutes);
+app.use('/api/chat', chatRoutes);
+
+
 
 // Static Uploads
 app.use('/uploads', express.static(path.resolve('uploads')));

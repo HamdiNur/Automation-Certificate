@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import Sidebar from "../components/Sidebar";
 import "./Dashboard.css";
+import { useUser } from "../../context/UserContext"; // ✅ Import context
 
-// ✅ API call to fetch profile
 const fetchProfile = async () => {
   const token = localStorage.getItem("token");
 
@@ -30,6 +30,7 @@ function Profile() {
     confirm: "",
   });
   const [passwordMessage, setPasswordMessage] = useState(null);
+  const { setUser } = useUser(); // ✅ Store globally
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -37,17 +38,18 @@ function Profile() {
         const user = await fetchProfile();
         setProfile(user);
         setTempProfile(user);
+        setUser(user); // ✅ Save user in context
       } catch (err) {
         console.error("Failed to load profile:", err.message);
       }
     };
 
     loadProfile();
-  }, []);
+  }, [setUser]);
 
   const handleSave = () => {
-    // You can later connect this to backend update profile API
     setProfile(tempProfile);
+    setUser(tempProfile); // ✅ Update context on save too
     setEditMode(false);
   };
 
@@ -64,18 +66,10 @@ function Profile() {
             <div className="student-card">
               {!editMode ? (
                 <>
-                  <p>
-                    <strong>Name:</strong> {profile.fullName}
-                  </p>
-                  <p>
-                    <strong>Email:</strong> {profile.email}
-                  </p>
-                  <p>
-                    <strong>Role:</strong> {profile.role}
-                  </p>
-                  <button className="btn-view" onClick={() => setEditMode(true)}>
-                    Edit Profile
-                  </button>
+                  <p><strong>Name:</strong> {profile.fullName}</p>
+                  <p><strong>Email:</strong> {profile.email}</p>
+                  <p><strong>Role:</strong> {profile.role}</p>
+                  <button className="btn-view" onClick={() => setEditMode(true)}>Edit Profile</button>
                 </>
               ) : (
                 <>
@@ -95,16 +89,10 @@ function Profile() {
                       setTempProfile({ ...tempProfile, email: e.target.value })
                     }
                   />
-                  <p>
-                    <strong>Role:</strong> {profile.role}
-                  </p>
+                  <p><strong>Role:</strong> {profile.role}</p>
                   <div className="modal-buttons">
-                    <button className="btn-confirm" onClick={handleSave}>
-                      Save
-                    </button>
-                    <button className="btn-cancel" onClick={() => setEditMode(false)}>
-                      Cancel
-                    </button>
+                    <button className="btn-confirm" onClick={handleSave}>Save</button>
+                    <button className="btn-cancel" onClick={() => setEditMode(false)}>Cancel</button>
                   </div>
                 </>
               )}
@@ -116,25 +104,19 @@ function Profile() {
                 type="password"
                 placeholder="Current Password"
                 value={passwords.current}
-                onChange={(e) =>
-                  setPasswords({ ...passwords, current: e.target.value })
-                }
+                onChange={(e) => setPasswords({ ...passwords, current: e.target.value })}
               />
               <input
                 type="password"
                 placeholder="New Password"
                 value={passwords.new}
-                onChange={(e) =>
-                  setPasswords({ ...passwords, new: e.target.value })
-                }
+                onChange={(e) => setPasswords({ ...passwords, new: e.target.value })}
               />
               <input
                 type="password"
                 placeholder="Confirm New Password"
                 value={passwords.confirm}
-                onChange={(e) =>
-                  setPasswords({ ...passwords, confirm: e.target.value })
-                }
+                onChange={(e) => setPasswords({ ...passwords, confirm: e.target.value })}
               />
 
               <div className="modal-buttons">
@@ -150,7 +132,7 @@ function Profile() {
                       return;
                     }
 
-                    // Future: Send to backend for update
+                    // Future backend update
                     setPasswordMessage("✅ Password updated successfully.");
                     setPasswords({ current: "", new: "", confirm: "" });
                   }}

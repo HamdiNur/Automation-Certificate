@@ -15,25 +15,32 @@ const CoursesPage = () => {
     fetchCourses(page);
   }, [page]);
 
-  const fetchCourses = async (currentPage = 1) => {
-    try {
-      setLoading(true);
-      const res = await axios.get(`http://localhost:5000/api/courses/all?page=${currentPage}&limit=10`);
-      const flattened = res.data.data.flatMap((item) =>
-        item.courses.map((course) => ({
-          ...course,
-          student: item.student,
-        }))
-      );
-      setCourses(flattened);
-      setPage(res.data.page);
-      setTotalPages(res.data.totalPages);
-    } catch (err) {
-      console.error("Error fetching course records", err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  useEffect(() => {
+  fetchCourses(1, search); // Reset to page 1 when user types in search
+}, [search]);
+
+const fetchCourses = async (currentPage = 1, keyword = search) => {
+  try {
+    setLoading(true);
+    const res = await axios.get(
+      `http://localhost:5000/api/courses/all?page=${currentPage}&limit=10&search=${keyword}`
+    );
+    const flattened = res.data.data.flatMap((item) =>
+      item.courses.map((course) => ({
+        ...course,
+        student: item.student,
+      }))
+    );
+    setCourses(flattened);
+    setPage(res.data.page);
+    setTotalPages(res.data.totalPages);
+  } catch (err) {
+    console.error("Error fetching course records", err);
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   const handleTogglePass = async (studentId, courseCode, currentPassed) => {
     try {
@@ -99,32 +106,33 @@ const CoursesPage = () => {
                     <td>{c.grade}</td>
                     <td>{c.passed ? "✅" : "❌"}</td>
                     <td>
-                      <button
-                        className="edit-btn"
-                        onClick={() =>
-                          handleTogglePass(c.student._id, c.courseCode, c.passed)
-                        }
-                      >
-                        ✏️ Edit
-                      </button>
-                      {!c.passed && (
-                        <button
-                          style={{
-                            marginLeft: "6px",
-                            backgroundColor: "#4CAF50",
-                            color: "white",
-                            padding: "3px 6px",
-                            border: "none",
-                            borderRadius: "4px",
-                            cursor: "pointer",
-                            fontSize: "12px",
-                          }}
-                          onClick={() => handleReexamNavigate(c.student._id)}
-                        >
-                          Re-exam
-                        </button>
-                      )}
-                    </td>
+  {c.passed ? (
+    <button
+      className="edit-btn"
+      onClick={() =>
+        handleTogglePass(c.student._id, c.courseCode, c.passed)
+      }
+    >
+      ✏️ Edit
+    </button>
+  ) : (
+    <button
+      style={{
+        backgroundColor: "#4CAF50",
+        color: "white",
+        padding: "3px 6px",
+        border: "none",
+        borderRadius: "4px",
+        cursor: "pointer",
+        fontSize: "12px",
+      }}
+      onClick={() => handleReexamNavigate(c.student._id)}
+    >
+      Re-exam
+    </button>
+  )}
+</td>
+
                   </tr>
                 ))}
               </tbody>

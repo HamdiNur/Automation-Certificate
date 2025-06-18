@@ -1,0 +1,48 @@
+.skeleton-card {
+  background: #fff;
+  padding: 20px;
+  border-radius: 10px;
+  max-width: 500px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+
+  /* 🔥 Align to the left like profile */
+  margin-left: 0;
+  margin-right: auto;
+}
+
+.skeleton-line {
+  height: 16px;
+  background-color: #e0e0e0;
+  margin: 10px 0;
+  border-radius: 4px;
+  animation: pulse 1.5s infinite ease-in-out;
+}
+
+.skeleton-line.short {
+  width: 50%;
+}
+
+.skeleton-line:not(.short) {
+  width: 100%;
+}
+
+.skeleton-button {
+  width: 100px;
+  height: 32px;
+  background-color: #e0e0e0;
+  border-radius: 20px;
+  margin-top: 20px;
+  animation: pulse 1.5s infinite ease-in-out;
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.6;
+  }
+}

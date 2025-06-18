@@ -8,6 +8,8 @@ function NameCorrections() {
   const [showModal, setShowModal] = useState(false);
   const [remarks, setRemarks] = useState("");
   const [actionType, setActionType] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+
 
   // ✅ Fetch name correction requests on load
   useEffect(() => {
@@ -18,30 +20,44 @@ function NameCorrections() {
   }, []);
 
   // ✅ Approve or reject logic
-  const handleDecision = async (studentId, status) => {
-    try {
-      const url = `http://localhost:5000/api/students/${status === "Approved" ? "approve-name" : "reject-name"}/${studentId}`;
-      const res = await fetch(url, { method: "PUT" });
+  // ✅ Approve or reject logic
+const handleDecision = async (studentId, status) => {
+  try {
+    // Check if the action is 'Approved' or 'Rejected'
+    const url =
+      status === "Approved"
+  ? "http://localhost:5000/api/examination/name-correction-approve"
+                                  // Approve route
+        : `http://localhost:5000/api/examination/reject-name/${studentId}`; // Reject route
 
-      if (res.ok) {
-        setRequests((prev) =>
-          prev.map((r) =>
-            r._id === studentId
-              ? { ...r, nameVerified: status === "Approved", nameCorrectionRequested: false }
-              : r
-          )
-        );
-        setShowModal(false);
-        setRemarks("");
-        setSelectedRequest(null);
-      } else {
-        const errData = await res.json();
-        console.error("Failed:", errData.message || "Unknown error");
-      }
-    } catch (err) {
-      console.error("Error processing request:", err);
+    const res = await fetch(url, {
+      method: "POST", // POST for the approve route
+      body: JSON.stringify({ studentId }),
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (res.ok) {
+      setRequests((prev) =>
+        prev.map((r) =>
+          r._id === studentId
+            ? { ...r, nameVerified: status === "Approved", nameCorrectionRequested: false }
+            : r
+        )
+      );
+      setShowModal(false);
+      setRemarks("");
+      setSelectedRequest(null);
+    } else {
+      const errData = await res.json();
+      console.error("Failed:", errData.message || "Unknown error");
     }
-  };
+  } catch (err) {
+    console.error("Error processing request:", err);
+  }
+};
+
 
   const formatRequestedName = (name) => {
     if (!name) return <i style={{ color: "#888" }}>N/A</i>;
@@ -54,10 +70,28 @@ function NameCorrections() {
       <Sidebar />
       <div className="dashboard-main">
         <h2>Student Name Correction Requests</h2>
+        <input
+  type="text"
+  placeholder="Search by name or ID..."
+  value={searchTerm}
+  onChange={(e) => setSearchTerm(e.target.value)}
+  style={{
+    marginBottom: "15px",
+    padding: "8px",
+    width: "100%",
+    maxWidth: "400px",
+    borderRadius: "4px",
+    border: "1px solid grey",
+  }}
+/>
+
+        
 
         <table>
           <thead>
             <tr>
+                  <th>No.</th> {/* 🆕 Add this */}
+
               <th>Student ID</th>
               <th>Student Name</th>
               <th>Requested Name</th>
@@ -67,60 +101,71 @@ function NameCorrections() {
             </tr>
           </thead>
           <tbody>
-            {requests.map((req, index) => (
-              <tr key={req._id || index}>
-                <td>{req.studentId}</td>
-                <td>{req.fullName}</td>
-                <td>{formatRequestedName(req.requestedName)}</td>
-                <td>
-                  {req.correctionUploadUrl ? (
-                    <a
-                      href={`http://localhost:5000/${req.correctionUploadUrl}`}
-                      download
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      View Document
-                    </a>
-                  ) : (
-                    <i style={{ color: "#999" }}>No document</i>
-                  )}
-                </td>
-                <td>
-                  <span className={`badge ${req.nameVerified ? "approved" : "pending"}`}>
-                    {req.nameVerified ? "Approved" : "Pending"}
-                  </span>
-                </td>
-                <td>
-                  {req.nameVerified ? (
-                    <span style={{ color: "#aaa" }}>—</span>
-                  ) : (
-                    <>
-                      <button
-                        className="btn-approve"
-                        onClick={() => {
-                          setSelectedRequest(req);
-                          setActionType("Approved");
-                          setShowModal(true);
-                        }}
-                      >
-                        Approve
-                      </button>
-                      <button
-                        className="btn-reject"
-                        onClick={() => {
-                          setSelectedRequest(req);
-                          setActionType("Rejected");
-                          setShowModal(true);
-                        }}
-                      >
-                        Reject
-                      </button>
-                    </>
-                  )}
-                </td>
-              </tr>
-            ))}
+          {requests
+  .filter((req) => {
+    const term = searchTerm.toLowerCase();
+    return (
+      req.fullName?.toLowerCase().includes(term) ||
+      req.studentId?.toLowerCase().includes(term)
+    );
+  })
+  .map((req, index) => (
+    <tr key={req._id || index}>
+    <td>{index + 1}</td> {/* 🆕 Show index here */}
+
+      <td>{req.studentId}</td>
+      <td>{req.fullName}</td>
+      <td>{formatRequestedName(req.requestedName)}</td>
+      <td>
+        {req.correctionUploadUrl ? (
+          <a
+            href={`http://localhost:5000/${req.correctionUploadUrl}`}
+            download
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            View Document
+          </a>
+        ) : (
+          <i style={{ color: "#999" }}>No document</i>
+        )}
+      </td>
+      <td>
+        <span className={`badge ${req.nameVerified ? "approved" : "pending"}`}>
+          {req.nameVerified ? "Approved" : "Pending"}
+        </span>
+      </td>
+      <td>
+        {req.nameVerified ? (
+          <span style={{ color: "#aaa" }}>—</span>
+        ) : (
+          <>
+            <button
+              className="btn-approve"
+              onClick={() => {
+                setSelectedRequest(req);
+                setActionType("Approved");
+                setShowModal(true);
+              }}
+            >
+              Approve
+            </button>
+            <button
+              className="btn-reject"
+              onClick={() => {
+                setSelectedRequest(req);
+                setActionType("Rejected");
+                setShowModal(true);
+              }}
+            >
+              Reject
+            </button>
+          </>
+        )}
+      </td>
+    </tr>
+))}
+
           </tbody>
         </table>
 

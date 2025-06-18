@@ -26,7 +26,9 @@ const clearanceSchema = new mongoose.Schema({
 
   finance: {
     status: { type: String, enum: ['Pending', 'Approved', 'Rejected'], default: 'Pending' },
-    clearedAt: Date
+    clearedAt: Date,
+    eligibleForFinance: { type: Boolean, default: false } // 🆕 Add this
+
   },
 
   examination: {

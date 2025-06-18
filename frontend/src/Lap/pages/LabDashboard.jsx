@@ -3,6 +3,8 @@ import axios from "axios";
 import { io } from "socket.io-client";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import SkeletonTable from "../../components/loaders/skeletonTable"; // adjust path if needed
+
 import LabSidebar from "../components/LabSidebar";
 
 function LabDashboard() {
@@ -15,6 +17,8 @@ function LabDashboard() {
   const [issuesInput, setIssuesInput] = useState("None");
   const [currentGroupId, setCurrentGroupId] = useState(null);
   const [loadingApproveId, setLoadingApproveId] = useState(null);
+  const [loading, setLoading] = useState(true);
+
 
   const BASE_URL = "http://localhost:5000/api/lab";
 
@@ -27,11 +31,14 @@ function LabDashboard() {
     }
   };
 const fetchPending = useCallback(async () => {
+  setLoading(true); // ✅ Start loading
   try {
     const res = await axios.get(`${BASE_URL}/pending`);
-    setPending(res.data); // store everything
+    setPending(res.data);
   } catch (err) {
     console.error("Error fetching pending lab records", err);
+  } finally {
+    setLoading(false); // ✅ End loading
   }
 }, []);
 
@@ -85,8 +92,12 @@ const fetchPending = useCallback(async () => {
             ).join(", ")}`,
       };
 
-      await axios.post(`${BASE_URL}/approve`, payload);
-      setShowApproveModal(false);
+const token = localStorage.getItem("token");
+await axios.post(`${BASE_URL}/approve`, payload, {
+  headers: {
+    Authorization: `Bearer ${token}`,
+  },
+});      setShowApproveModal(false);
       await fetchStats();
       await fetchPending();
       toast.success(allReturned ? "✅ Approved" : "⚠ Marked Incomplete");
@@ -103,24 +114,34 @@ const fetchPending = useCallback(async () => {
     }
   };
 
-  const handleReject = async (groupId) => {
-    const issues = prompt("Enter reason for rejection:");
-    if (!issues) return;
+ const handleReject = async (groupId) => {
+  const issues = prompt("Enter reason for rejection:");
+  if (!issues) return;
 
-    try {
-      await axios.post(`${BASE_URL}/reject`, { groupId, issues });
-      await fetchStats();
-      await fetchPending();
-      setExpandedRow(null);
-      toast.info("❌ Rejected successfully");
-    } catch (err) {
-      console.error("Rejection failed:", err);
-      toast.error("Rejection failed");
-    }
-  };
+  try {
+    const token = localStorage.getItem("token"); // ✅ fetch stored token
+    await axios.post(
+      `${BASE_URL}/reject`,
+      { groupId, issues },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`, // ✅ attach token
+        },
+      }
+    );
+    await fetchStats();
+    await fetchPending();
+    setExpandedRow(null);
+    toast.info("❌ Rejected successfully");
+  } catch (err) {
+    console.error("Rejection failed:", err.response?.data || err.message);
+    toast.error("Rejection failed");
+  }
+};
+
 const normalized = search.toLowerCase().replace(/\s+/g, "");
 const filtered = pending.filter((rec) => {
-  // ✅ RIGHT HERE
+
   const groupNumber = String(rec.groupId?.groupNumber || "").trim().toLowerCase();
   const fullGroup = `group${groupNumber}`.replace(/\s+/g, "");
   const title = (rec.groupId?.projectTitle || "").toLowerCase();
@@ -137,6 +158,19 @@ const filtered = pending.filter((rec) => {
   return matchExact || matchFull || includes || matchTitle || matchStudent;
 });
 
+const canReject = (rec) => {
+  const hasExpected = (rec.expectedItems?.length || 0) > 0;
+
+  let returned = [];
+
+  if (Array.isArray(rec.returnedItems)) {
+    returned = rec.returnedItems.map(i => i.trim()).filter(Boolean);
+  } else if (typeof rec.returnedItems === "string") {
+    returned = rec.returnedItems.split(",").map(i => i.trim()).filter(Boolean);
+  }
+
+  return hasExpected && returned.length === 0;
+};
 
   return (
     <div className="dashboard-wrapper">
@@ -177,10 +211,19 @@ const filtered = pending.filter((rec) => {
                 <th>Actions</th>
               </tr>
             </thead>
-            <tbody>
-              {filtered.length === 0 ? (
-                <tr><td colSpan="6">🎉 No pending lab records</td></tr>
-              ) : (
+                   <tbody>
+  {loading ? (
+    <tr>
+      <td colSpan="6">
+        <SkeletonTable rows={4} />
+      </td>
+    </tr>
+  ) : pending.length === 0 ? (
+    <tr>
+      <td colSpan="6">🎉 No pending records found</td>
+    </tr>
+  ) : (
+          
 filtered.map((rec) => (
                   <React.Fragment key={rec._id}>
                     <tr>
@@ -250,7 +293,14 @@ return <span className="badge returned">{returned.filter(i => i).join(', ')}</sp
                               >
                                 {loadingApproveId === rec.groupId._id ? "Approving..." : "✅ Approve"}
                               </button>
-                              <button className="btn-reject" onClick={() => handleReject(rec.groupId._id)} style={{ marginLeft: 10 }} disabled={!rec.issues?.trim()}>❌ Reject</button>
+<button
+  className="btn-reject"
+  onClick={() => handleReject(rec.groupId._id)}
+  style={{ marginLeft: 10 }}
+  disabled={!canReject(rec)}
+>
+  ❌ Reject
+</button>
                             </div>
                           </div>
                         </td>

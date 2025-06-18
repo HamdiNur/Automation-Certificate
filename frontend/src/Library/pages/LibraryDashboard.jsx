@@ -4,6 +4,8 @@ import { io } from "socket.io-client";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import LibrarySidebar from "../components/LibrarySidebar";
+import SkeletonTable from "../../components/loaders/skeletonTable"; // adjust path if needed
+
 import "./styles/style.css";
 
 function LibraryDashboard() {
@@ -12,6 +14,8 @@ function LibraryDashboard() {
   const [search, setSearch] = useState("");
   const [expandedRow, setExpandedRow] = useState(null);
   const [loadingApproveId, setLoadingApproveId] = useState(null);
+    const [loading, setLoading] = useState(true);
+
 
   const BASE_URL = "http://localhost:5000/api/library";
 
@@ -28,19 +32,23 @@ function LibraryDashboard() {
     }
   };
 
-  const fetchPending = useCallback(async () => {
-    try {
-      const res = await axios.get(`${BASE_URL}/pending`);
-      const allPending = res.data;
-      const filtered = allPending.filter((rec) =>
-        `${rec.groupId?.groupNumber || ""}`.toLowerCase().includes(search.toLowerCase()) ||
-        `${rec.groupId?.projectTitle || ""}`.toLowerCase().includes(search.toLowerCase())
-      );
-      setPending(filtered);
-    } catch (err) {
-      console.error("Error fetching pending records", err);
-    }
-  }, [search]);
+const fetchPending = useCallback(async () => {
+  setLoading(true); // <-- Start loading
+  try {
+    const res = await axios.get(`${BASE_URL}/pending`);
+    const allPending = res.data;
+    const filtered = allPending.filter((rec) =>
+      `${rec.groupId?.groupNumber || ""}`.toLowerCase().includes(search.toLowerCase()) ||
+      `${rec.groupId?.projectTitle || ""}`.toLowerCase().includes(search.toLowerCase())
+    );
+    setPending(filtered);
+  } catch (err) {
+    console.error("Error fetching pending records", err);
+  } finally {
+    setLoading(false); // <-- Stop loading
+  }
+}, [search]);
+
 
   useEffect(() => {
     fetchStats();
@@ -158,12 +166,18 @@ function LibraryDashboard() {
                 <th>Action</th>
               </tr>
             </thead>
-            <tbody>
-              {pending.length === 0 ? (
-                <tr>
-                  <td colSpan="6">🎉 No pending records found</td>
-                </tr>
-              ) : (
+         <tbody>
+  {loading ? (
+    <tr>
+      <td colSpan="6">
+        <SkeletonTable rows={4} />
+      </td>
+    </tr>
+  ) : pending.length === 0 ? (
+    <tr>
+      <td colSpan="6">🎉 No pending records found</td>
+    </tr>
+  ) : (
                 pending.map((rec) => (
                   <React.Fragment key={rec._id}>
                     <tr>

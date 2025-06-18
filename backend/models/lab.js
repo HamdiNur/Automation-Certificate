@@ -26,9 +26,23 @@ const labSchema = new mongoose.Schema({
     default: []
   },
 
+  // ✅ Add this block to track approval/rejection history
+  history: [
+    {
+      status: String,
+      reason: String,
+      actor: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+      },
+      date: {
+        type: Date,
+        default: Date.now
+      }
+    }
+  ],
+
   approvedBy: String
-}, { timestamps: true }); // ✅ This automatically adds createdAt + updatedAt
+}, { timestamps: true });
 
-
-
-  export default mongoose.model('lab', labSchema );
+export default mongoose.model('lab', labSchema);

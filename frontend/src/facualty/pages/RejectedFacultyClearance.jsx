@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import FacultySidebar from "../components/FacultySidebar";
+import SkeletonTable from "../../components/loaders/skeletonTable"; // adjust the path if needed
+
 import "./styling/style.css";
 
 function RejectedFacultyClearance() {
@@ -93,7 +95,7 @@ const handleMarkReadyAgain = async (groupId) => {
         </div>
 
         {loading ? (
-          <p>Loading rejected records...</p>
+  <SkeletonTable rows={5} cols={6} />
         ) : filteredRejected.length === 0 ? (
           <p>No rejected faculty clearances found.</p>
         ) : (

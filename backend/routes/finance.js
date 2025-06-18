@@ -2,26 +2,39 @@
 import express from 'express';
 import {
   getPendingFinance,
-  approveFinance,
+  // approveFinance,
   rejectFinance,
-  updatePayment,
+  // updatePayment,
   getStudentFinanceSummary,
   getFinanceStats,
-  getStudentsWhoPaidGraduationFee
+  getStudentsWhoPaidGraduationFee,
+  processStudentPayment,
+  adminForceApproveFinance,
+  adminAddManualPayment
 } from '../controllers/financeController.js';
 
 // import checkClearance from '../middleware/checkClearance.js';
 import Student from '../models/Student.js';
 import { generateFinanceForStudent } from '../utils/financeGenerator.js'; // ✅ Import utility
+import auth from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
 // 📌 ROUTES
 router.get('/pending', getPendingFinance);
-router.post('/approve', approveFinance);
+// router.post('/approve', approveFinance);
 router.post('/reject', rejectFinance);
-router.put('/update-payment', updatePayment);
+// 🔹 Real EVC payment (used by "Pay via EVC" button)
+router.post('/pay', processStudentPayment); // ✅ YOUR KEY ROUTE
+
+
+router.post('/admin-approve', auth, adminForceApproveFinance);
+router.post('/manual-payment', adminAddManualPayment);
+
+// router.put('/update-payment', updatePayment);
 router.get('/finance-summary/:studentId', getStudentFinanceSummary);
+
+
 router.get('/stats', getFinanceStats);
 router.get('/graduation-paid', getStudentsWhoPaidGraduationFee); // ✅ Extra route
 

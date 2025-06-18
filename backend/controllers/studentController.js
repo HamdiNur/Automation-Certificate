@@ -6,7 +6,7 @@ import bcrypt from 'bcryptjs';
 import Student from '../models/Student.js';
 import Group from '../models/group.js';
 import CourseRecord from '../models/course.js';
-import Clearance from '../models/Clearance.js';
+import Clearance from '../models/clearance.js';
 import Examination from '../models/examination.js';
 import Finance from '../models/finance.js';
 
@@ -162,8 +162,11 @@ export const getAllStudents = async (req, res) => {
       query.nameCorrectionEligible = true;
     }
 
-    const students = await Student.find(query);
-    res.status(200).json(students);
+  const students = await Student.find(query).select(
+  'studentId fullName requestedName correctionUploadUrl nameVerified'
+);
+res.status(200).json(students);
+
   } catch (err) {
     res.status(500).json({ message: "Failed to fetch students", error: err.message });
   }

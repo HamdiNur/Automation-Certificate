@@ -2,6 +2,8 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { Link } from "react-router-dom";
 import LibrarySidebar from "../components/LibrarySidebar";
+import SkeletonTable from "../../components/loaders/skeletonTable"; // adjust path if needed
+
 import "./styles/style.css";
 
 function ApprovedSubmissions() {
@@ -88,7 +90,7 @@ const handleSearch = (e) => {
         </div>
 
         {loading ? (
-          <p>Loading approved submissions...</p>
+<SkeletonTable rows={6} cols={7} />
         ) : filtered.length === 0 ? (
           <p>No approved submissions found.</p>
         ) : (

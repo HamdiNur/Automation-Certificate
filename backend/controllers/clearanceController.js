@@ -1,4 +1,4 @@
-import Clearance from '../models/Clearance.js';
+import Clearance from '../models/clearance.js';
 import Group from '../models/group.js';
 import Appointment from '../models/appointment.js';
 import Student from '../models/Student.js';

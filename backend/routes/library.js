@@ -11,11 +11,13 @@ import {
   rejectLibrary,
   markLibraryReadyAgain,
   getLibraryHistory,
+  getMyGroupLibrary,
   // fixLibraryFlags,
   
 
 } from '../controllers/libraryController.js';
 import auth from '../middleware/authMiddleware.js';
+import studentAuth from '../middleware/studentAuth.js';
 
 const router = express.Router();
 router.get('/pending', getPendingLibrary);
@@ -24,6 +26,8 @@ router.get('/pending', getPendingLibrary);
 router.post('/approve', approveLibrary);
 router.post('/reject',rejectLibrary);
 router.get('/stats', getLibraryStats); 
+router.get('/my-group', studentAuth, getMyGroupLibrary);
+
 router.get('/history/:groupId', getLibraryHistory); // ✅ Add this line
 
 // ✅ Add this line

@@ -11,6 +11,9 @@ import { connectDB } from '../config/db.js';
 
 import projectTitles from '../utils/data/projectTitles.js';
 import projectItemMap from '../utils/data/projectItemMap.js';
+import finance from '../models/finance.js';
+import examination from '../models/examination.js';
+import clearance  from '../models/clearance.js'
 
 await connectDB();
 
@@ -24,6 +27,10 @@ const seedGroups = async () => {
     await Faculty.deleteMany();
     await Library.deleteMany();
     await Lab.deleteMany();
+    await finance.deleteMany();           // ✅ New
+    await examination.deleteMany();
+    await clearance.deleteMany(); // 🔥 if you want to fully reset student progress
+
     await Student.updateMany({}, { $unset: { groupId: '', role: '' } });
 
     console.log('🧹 Cleared previous groups, faculty, library, and lab records');

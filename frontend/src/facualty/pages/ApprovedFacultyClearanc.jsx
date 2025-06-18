@@ -2,6 +2,8 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { Link } from "react-router-dom";
 import FacultySidebar from "../components/FacultySidebar";
+import SkeletonTable from "../../components/loaders/skeletonTable"; // adjust path if needed
+
 import "./styling/style.css";
 
 function ApprovedFacultyClearance() {
@@ -89,7 +91,7 @@ function ApprovedFacultyClearance() {
         </div>
 
         {loading ? (
-          <p>Loading approved records...</p>
+  <SkeletonTable rows={5} cols={5} />
         ) : filteredApproved.length === 0 ? (
           <p>No approved faculty clearances found.</p>
         ) : (

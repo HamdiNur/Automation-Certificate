@@ -31,7 +31,7 @@ const financeSchema = new mongoose.Schema({
   paymentMethod: { // 🔹 Optional (for payments only)
     type: String,
     enum: ['EVC Plus', 'Cash', 'Waiver'],
-    default: 'Cash',
+    default: 'EVC Plus',
   },
 
   receiptNumber: { // 🔹 Optional: if your app shows receipt codes
@@ -52,5 +52,15 @@ const financeSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+  approvedBy: {
+  type: String,
+  default: null
+},
+clearedAt: {
+  type: Date,
+  default: null
+}
+
+  
 });
 export default mongoose.model('Finance', financeSchema);

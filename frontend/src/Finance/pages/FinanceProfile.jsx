@@ -2,12 +2,13 @@
 
 import React, { useEffect, useState } from "react";
 import FinanceSidebar from "../components/FinanceSidebar";
+import { useUser } from "../../context/UserContext"; // ✅ Import context
 import "./FinanceProfile.css";
-
 function FinanceProfile() {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const { setUser } = useUser();
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -18,12 +19,12 @@ function FinanceProfile() {
           },
         });
 
-        if (!res.ok) {
-          throw new Error("Failed to fetch profile");
-        }
+        if (!res.ok) throw new Error("Failed to fetch profile");
 
         const data = await res.json();
         setProfile(data.user);
+        setUser(data.user);
+        localStorage.setItem("user", JSON.stringify(data.user));
       } catch (err) {
         setError(err.message);
       } finally {
@@ -32,25 +33,31 @@ function FinanceProfile() {
     };
 
     fetchProfile();
-  }, []);
-
-  if (loading) return <div className="dashboard-main">Loading profile...</div>;
-  if (error) return <div className="dashboard-main">❌ {error}</div>;
+  }, [setUser]);
 
   return (
     <div className="dashboard-wrapper">
       <FinanceSidebar />
+
       <div className="dashboard-main">
         <h2>My Profile</h2>
-        <div className="student-card">
-          <p><strong>Name:</strong> {profile.fullName}</p>
-          <p><strong>Email:</strong> {profile.email}</p>
-          <p><strong>Role:</strong> {profile.role}</p>
-          <p><strong>Department:</strong> {profile.department || "N/A"}</p>
-        </div>
+
+        {loading ? (
+          <p>Loading profile...</p>
+        ) : error ? (
+          <p style={{ color: "red" }}>❌ {error}</p>
+        ) : (
+          <div className="student-card">
+            <p><strong>Name:</strong> {profile.fullName}</p>
+            <p><strong>Email:</strong> {profile.email}</p>
+            <p><strong>Role:</strong> {profile.role}</p>
+            <p><strong>Department:</strong> {profile.department || "N/A"}</p>
+          </div>
+        )}
       </div>
     </div>
   );
 }
+
 
 export default FinanceProfile;

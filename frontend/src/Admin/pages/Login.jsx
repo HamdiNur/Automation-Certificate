@@ -1,13 +1,15 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useUser } from "../../context/UserContext"; // ✅ context
 import "./Login.css";
 import bgImage from "../../assets/logo.jpg";
 import logo from "../../assets/jam.png";
 
 const Login = () => {
-  const [form, setForm] = useState({ username: "", password: "" }); // ✅ FIXED
+  const [form, setForm] = useState({ username: "", password: "" });
   const [error, setError] = useState("");
   const navigate = useNavigate();
+  const { setUser } = useUser(); // ✅ from context
 
   const handleChange = (e) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -28,13 +30,19 @@ const Login = () => {
       if (!res.ok) throw new Error(data.message || "Login failed");
 
       const { token, user } = data;
+
+      // ✅ Save to localStorage
       localStorage.setItem("token", token);
       localStorage.setItem("role", user.role);
       localStorage.setItem("userId", user.userId);
-      localStorage.setItem("userMongoId", user.id); // ✅ corrected
+      localStorage.setItem("userMongoId", user.id);
       localStorage.setItem("username", user.username);
+      localStorage.setItem("user", JSON.stringify(user)); // ✅ full user for context
 
-      // ✅ Role-based redirect
+      // ✅ Update context globally
+      setUser(user);
+
+      // ✅ Redirect by role
       const routeMap = {
         admin: "dashboard",
         finance: "finance/dashboard",

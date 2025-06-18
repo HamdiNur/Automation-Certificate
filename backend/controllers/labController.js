@@ -1,9 +1,8 @@
 // ✅ backend/controllers/labController.js — Full Lab Logic
-
 import Lab from '../models/lab.js';
 import Group from '../models/group.js';
 import Student from '../models/Student.js';
-import Clearance from '../models/Clearance.js';
+import Clearance from '../models/clearance.js';
 import Finance from '../models/finance.js';  // ✅ ADD THIS LINE
 import { generateFinanceForStudent } from '../utils/financeGenerator.js';
 
@@ -12,7 +11,7 @@ import { generateFinanceForStudent } from '../utils/financeGenerator.js';
 export const getAllLabClearances = async (req, res) => {
   try {
     const records = await Lab.find()
-      .populate('groupId', 'groupNumber program faculty')
+      .populate('groupId', 'groupNumber program faculty projectTitle')
       .populate('members', 'fullName studentId email');
     res.status(200).json(records);
   } catch (err) {
@@ -50,62 +49,55 @@ export const getLabByStudentId = async (req, res) => {
 };
 
 
-
 export const getPendingLab = async (req, res) => {
   try {
     const query = req.query.search?.trim();
 
-    // 1. Fetch all labs with Pending or Incomplete status
+    // 1. Get lab records with status 'Pending' or 'Incomplete'
     const labs = await Lab.find({ status: { $in: ['Pending', 'Incomplete'] } })
       .populate('groupId', 'groupNumber projectTitle')
       .populate('members', 'fullName studentId');
 
-    // 2. Run clearance lookups in parallel using Promise.all
+    // 2. Filter only those where Faculty and Library are both approved
     const results = await Promise.all(
       labs.map(async (lab) => {
-        const student = lab.members[0];
+        const student = lab.members[0]; // pick one student to check clearance
         const clearance = await Clearance.findOne({ studentId: student._id }).lean();
 
         const facultyCleared = clearance?.faculty?.status === 'Approved';
         const libraryCleared = clearance?.library?.status === 'Approved';
+        const libraryDate = clearance?.library?.clearedAt;
 
-        // Only return lab if both are cleared
-        return facultyCleared && libraryCleared ? lab : null;
+        return (facultyCleared && libraryCleared)
+          ? { ...lab.toObject(), libraryDate }
+          : null;
       })
     );
 
-    // 3. Filter out nulls
+    // 3. Keep only valid results
     const validLabs = results.filter(Boolean);
 
-    // 4. If query is present, filter again based on group number or student ID
-const normalizedQuery = query?.toLowerCase().replace(/\s+/g, "") || "";
+    // 4. Sort by Library approval time (first-come-first-serve)
+    validLabs.sort((a, b) => new Date(a.libraryDate) - new Date(b.libraryDate));
 
-const filtered = query
-  ? validLabs.filter((lab) => {
-      const groupNumber = lab.groupId?.groupNumber?.toString() || "";
-      const groupFull = `group${groupNumber}`.toLowerCase().replace(/\s+/g, "");
-      const projectTitle = lab.groupId?.projectTitle?.toLowerCase() || "";
+    // 5. If there's a search query, filter by group number, student, or title
+    const normalizedQuery = query?.toLowerCase().replace(/\s+/g, "") || "";
 
+    const filtered = query
+      ? validLabs.filter((lab) => {
+          const groupNumber = lab.groupId?.groupNumber?.toString() || "";
+          const groupFull = `group${groupNumber}`.toLowerCase().replace(/\s+/g, "");
+          const projectTitle = lab.groupId?.projectTitle?.toLowerCase() || "";
 
-      const normalizedGroup = groupNumber.toLowerCase().replace(/\s+/g, "");
-    const normalizedGroupFull = `group${normalizedGroup}`;
+          const matchGroup = groupFull.includes(normalizedQuery) || groupNumber.includes(normalizedQuery);
+          const matchTitle = projectTitle.includes(normalizedQuery);
+          const matchStudent = lab.members.some((m) =>
+            `${m.fullName} ${m.studentId}`.toLowerCase().replace(/\s+/g, "").includes(normalizedQuery)
+          );
 
-     const matchExactGroup =
-  normalizedQuery === normalizedGroup || // e.g. "2"
-  normalizedQuery === normalizedGroupFull || // e.g. "group2"
-  normalizedGroupFull.includes(normalizedQuery); // e.g. search: "Group 2"
-
-
-      const matchProject = projectTitle.includes(normalizedQuery);
-
-      const matchStudent = lab.members.some((m) =>
-        `${m.fullName} ${m.studentId}`.toLowerCase().includes(normalizedQuery)
-      );
-
-      return matchExactGroup || matchProject || matchStudent;
-    })
-  : validLabs;
-
+          return matchGroup || matchTitle || matchStudent;
+        })
+      : validLabs;
 
     return res.status(200).json(filtered);
   } catch (err) {
@@ -117,25 +109,20 @@ const filtered = query
 // 🔹 Approve lab clearance
 export const approveLab = async (req, res) => {
   try {
-    const { groupId, approvedBy, returnedItems, issues } = req.body;
+    const { groupId, approvedBy, returnedItems, issues, projectTitle } = req.body;
 
-    // 1. Find the Lab record
     const record = await Lab.findOne({ groupId });
     if (!record) {
       return res.status(404).json({ message: 'Lab record not found' });
     }
 
-    // 2. Extract expected items from the Lab document itself (not the group)
     const expected = (record.expectedItems || []).map(i => i.trim().toLowerCase());
-const returned =
-  Array.isArray(returnedItems)
-    ? returnedItems.map(i => i.trim().toLowerCase())
-    : (returnedItems || '').split(',').map(i => i.trim().toLowerCase());
+    const returned = Array.isArray(returnedItems)
+      ? returnedItems.map(i => i.trim().toLowerCase())
+      : (returnedItems || '').split(',').map(i => i.trim().toLowerCase());
 
-    // 3. Compare returned vs expected
     const missingItems = expected.filter(item => !returned.includes(item));
 
-    // 4. Decide status
     if (missingItems.length > 0) {
       record.status = 'Incomplete';
       record.issues = `Missing: ${missingItems.join(', ')}`;
@@ -146,11 +133,23 @@ const returned =
 
     record.clearedAt = new Date();
     record.approvedBy = approvedBy || 'System';
-    record.returnedItems = returned; // you can use returned.join(',') if you prefer storing as string
+    record.returnedItems = returned;
+
+    // Adding this before saving the record:
+record.history = record.history || [];
+record.history.push({
+  status: record.status,
+  reason: record.status === 'Incomplete'
+    ? 'Missing returned items'
+    : issues || 'All items returned',
+  actor: req.user._id,
+  date: new Date()
+});
+
+
 
     await record.save();
 
-    // 5. Update group clearance progress if fully approved
     if (record.status === 'Approved') {
       await Group.updateOne(
         { _id: groupId },
@@ -163,7 +162,6 @@ const returned =
       );
     }
 
-    // 6. Update or create clearance records for each student
     const students = await Student.find({ groupId }).select('_id');
 
     for (const student of students) {
@@ -185,7 +183,6 @@ const returned =
       await clearance.save();
     }
 
-    // 7. If lab is approved and other Phase 1 clearances are approved, generate Finance
     if (record.status === 'Approved') {
       for (const student of students) {
         const clearance = await Clearance.findOne({ studentId: student._id });
@@ -198,6 +195,7 @@ const returned =
         if (allPhaseOneCleared) {
           await Finance.deleteMany({ studentId: student._id });
           await generateFinanceForStudent(student._id);
+
           await Clearance.updateOne(
             { studentId: student._id },
             {
@@ -208,23 +206,32 @@ const returned =
             }
           );
 
-          console.log(`✅ Finance initialized for ${student._id}`);
+          // ✅ Emit finance notification
+          if (global._io) {
+            global._io.emit("finance:new-charge", {
+              studentId: student._id.toString(),
+              message: "Finance generated after Lab clearance",
+              timestamp: new Date()
+            });
+          }
+
+          console.log(`✅ Finance initialized and socket emitted for ${student._id}`);
         }
       }
     }
 
-   return res.status(200).json({
-  message: record.status === 'Incomplete'
-    ? 'Lab marked as incomplete. Returned items were not complete.'
-    : 'Lab approved and clearance updated successfully.'
-});
-
+    return res.status(200).json({
+      message: record.status === 'Incomplete'
+        ? 'Lab marked as incomplete. Returned items were not complete.'
+        : 'Lab approved and clearance updated successfully.'
+    });
 
   } catch (err) {
     console.error("❌ Lab approval error:", err);
     return res.status(500).json({ message: 'Approval failed', error: err.message });
   }
 };
+
 
 // 🔹 Reject lab clearance
 // 🔹 Reject lab clearance
@@ -240,6 +247,16 @@ export const rejectLab = async (req, res) => {
     record.status = 'Rejected';
     record.issues = issues || 'Unspecified';
     record.clearedAt = null;
+
+
+    record.history = record.history || [];
+record.history.push({
+  status: 'Rejected',
+  reason: issues || 'Unspecified',
+  actor: req.user._id,
+  date: new Date()
+});
+
     await record.save();
 
     // 3. Update Group progress
@@ -346,6 +363,16 @@ export const markLabReadyAgain = async (req, res) => {
     lab.returnedItems = [];
     lab.clearedAt = null;
 
+
+    lab.history = lab.history || [];
+lab.history.push({
+  status: "Pending",
+  reason: "Marked ready again after rejection",
+  actor: actorId,
+  date: new Date()
+});
+
+
     await lab.save();
 
     // ✅ Update Group progress
@@ -393,5 +420,79 @@ export const markLabReadyAgain = async (req, res) => {
   } catch (err) {
     console.error("❌ markLabReadyAgain error:", err);
     res.status(500).json({ message: "Failed to mark lab as ready again", error: err.message });
+  }
+};
+
+
+// GET /api/lab/history/:groupId
+export const getLabHistory = async (req, res) => {
+  try {
+    const { groupId } = req.params;
+    const lab = await Lab.findOne({ groupId }).populate('history.actor', 'fullName role');
+
+    if (!lab) return res.status(404).json({ message: "Lab record not found" });
+
+    return res.status(200).json({ history: lab.history || [] });
+  } catch (err) {
+    console.error("❌ Lab history fetch error:", err);
+    res.status(500).json({ message: "Failed to fetch lab history", error: err.message });
+  }
+};
+
+
+
+
+
+// 🔹 Get Lab Clearance for Logged-In Student’s Group
+export const getMyGroupLab = async (req, res) => {
+  try {
+    console.log(`📥 getMyGroupLab called by: ${req.user?.id || req.user?.studentId}`);
+
+    // 1️⃣ Identify the student using JWT payload
+    let student = null;
+
+    if (req.user.id) {
+      student = await Student.findById(req.user.id);
+    }
+    if (!student && req.user.studentId) {
+      student = await Student.findOne({ studentId: req.user.studentId });
+    }
+
+    if (!student) {
+      console.warn("❌ Student not found.");
+      return res.status(404).json({ ok: false, message: "Student not found" });
+    }
+
+    if (!student.groupId) {
+      console.warn("⚠️ Student is not assigned to any group.");
+      return res.status(404).json({ ok: false, message: "Student not assigned to a group" });
+    }
+
+    // 2️⃣ Retrieve lab clearance for the group
+    const labRecord = await Lab.findOne({ groupId: student.groupId });
+
+    if (!labRecord) {
+      console.info("ℹ️ No lab clearance started for this group.");
+      return res.status(200).json({ ok: false, message: "No lab clearance started for this group" });
+    }
+
+    // 3️⃣ Return lab status and relevant info
+    return res.status(200).json({
+      ok: true,
+      status: labRecord.status,                    // "Pending" | "Approved" | "Rejected" | "Incomplete"
+      issues: labRecord.issues || "",
+      expectedItems: labRecord.expectedItems || [],
+      returnedItems: labRecord.returnedItems || [],
+      groupId: student.groupId,
+      clearedAt: labRecord.clearedAt,
+    });
+
+  } catch (err) {
+    console.error("❌ getMyGroupLab error:", err.message);
+    return res.status(500).json({
+      ok: false,
+      message: "Failed to fetch your group’s lab clearance status",
+      error: err.message,
+    });
   }
 };

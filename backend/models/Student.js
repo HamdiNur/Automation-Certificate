@@ -69,10 +69,12 @@ const studentSchema = new mongoose.Schema({
     unique: true,
     lowercase: true
   },
-  phone: {
-    type: String,
-    required: true
-  },
+phone: {
+  type: String,
+  required: true,
+  unique: true,
+},
+
   rawPassword: {
     type: String,
     required: true
@@ -123,7 +125,9 @@ const studentSchema = new mongoose.Schema({
   profilePicture: {
     type: String,
     default: ''
-  }
+  },
+  fcmToken: { type: String }, // ✅ Add this
+
 
 }, { timestamps: true });
 

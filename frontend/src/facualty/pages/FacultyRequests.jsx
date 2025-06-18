@@ -162,6 +162,7 @@ function FacultyRequests() {
         <table>
           <thead>
             <tr>
+               <th>No.</th>
               <th>Group</th>
               <th>Project Title</th>
               <th>Status</th>
@@ -183,8 +184,10 @@ function FacultyRequests() {
                 <td colSpan="6">No requests found.</td>
               </tr>
             ) : (
-              filtered.map((r) => (
+              filtered.map((r,index) => (
                 <tr key={r.id}>
+                        <td>{index + 1}</td> {/* 👈 Serial number */}
+
                   <td>Group {r.groupNumber}</td>
                   <td>{r.projectTitle}</td>
                   <td>

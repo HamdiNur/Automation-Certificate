@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import LibrarySidebar from "../components/LibrarySidebar";
+import SkeletonTable from "../../components/loaders/skeletonTable"; // ✅ adjust path if needed
+
 import "./styles/style.css";
 
 function RejectedSubmissions() {
@@ -119,7 +121,7 @@ function RejectedSubmissions() {
         </div>
 
         {loading ? (
-          <p>Loading rejected submissions...</p>
+<SkeletonTable rows={6} cols={7} />
         ) : filtered.length === 0 ? (
           <p>No rejected submissions found.</p>
         ) : (

@@ -46,6 +46,9 @@ import PendingApprovals from "./Finance/pages/PendingApprovals";
 import GraduationPaid from "./Finance/pages/GraduationPaid";
 import StudentReexamDashboardWrapper from "./Admin/pages/StudentReexamDashboardWrapper";
 import GroupMembersPage from "./facualty/pages/GroupMember";
+import FinanceChat from "./Finance/pages/FinanceChat";
+import LabGroupDetails from "./Lap/pages/GroupDetails";
+
 
 function App() {
   return (
@@ -85,6 +88,8 @@ function App() {
      <Route path="/lab/profile" element={<LabProfile />} />
 <Route path="/lab/approved" element={<ApprovedLabClearances />} />
 <Route path="/lab/rejected" element={<RejectedLabReturns />} />
+<Route path="/lab/group/:groupId" element={<LabGroupDetails />} />
+
 
         {/* Library */}
         <Route path="/library/dashboard" element={<LibraryDashboard />} />
@@ -96,11 +101,13 @@ function App() {
         <Route path="/library/group/:groupId" element={<GroupDetails />} />
 
         {/* Finance */}
+        <Route path="/finance/chat" element={<FinanceChat />} /> {/* 🆕 Chat Inbox */}
         <Route path="/finance/dashboard" element={<FinanceDashboard />} />
         <Route path="/finance/payments" element={<FinancePayments />} />
         <Route path="/finance/pending" element={<PendingApprovals />} />
         <Route path="/finance/graduation-paid" element={<GraduationPaid />} />
         <Route path="/finance/profile" element={<FinanceProfile />} />
+        
 
         {/* 404 Not Found */}
         <Route path="*" element={<div style={{ padding: 50 }}><h2>404 - Page Not Found</h2></div>} />

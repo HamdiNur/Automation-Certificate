@@ -38,7 +38,7 @@ export const generateFinanceForStudent = async (studentId) => {
     amount: 25,
     balanceAfter: balance,
     createdAt: admissionDate,
-    paymentMethod: 'Cash',
+    paymentMethod: 'EVC Plus',
     receiptNumber: 'N/A',
     status: 'Approved'
   });
@@ -53,7 +53,7 @@ export const generateFinanceForStudent = async (studentId) => {
     amount: 25,
     balanceAfter: 0,
     createdAt: admissionDate,
-    paymentMethod: 'Cash',
+    paymentMethod: 'EVC Plus',
     receiptNumber: getNextReceipt(),
     status: 'Approved'
   });
@@ -69,19 +69,16 @@ export const generateFinanceForStudent = async (studentId) => {
     ];
 
     if (sem === 8) {
-      // Graduation Fee as PENDING
       charges.push({
         amount: GRADUATION_FEE,
         date: gradDate,
         description: `Graduation Fee - $${GRADUATION_FEE}`,
-        status: 'Pending' // 👈 mark only graduation fee as pending
+        status: 'Pending'
       });
     }
 
-    // Add Charges
     for (const charge of charges) {
       balance += charge.amount;
-
       financeData.push({
         studentId,
         semester: sem,
@@ -90,19 +87,17 @@ export const generateFinanceForStudent = async (studentId) => {
         amount: charge.amount,
         balanceAfter: balance,
         createdAt: charge.date,
-        paymentMethod: 'Cash',
+        paymentMethod: 'EVC Plus',
         receiptNumber: 'N/A',
         status: charge.status || 'Approved'
       });
     }
 
-    // Pay only Tuition — Graduation remains unpaid
     const tuitionOnly = charges
       .filter(c => !c.description?.includes('Graduation'))
       .reduce((sum, c) => sum + c.amount, 0);
 
     balance -= tuitionOnly;
-
     financeData.push({
       studentId,
       semester: sem,
@@ -111,10 +106,27 @@ export const generateFinanceForStudent = async (studentId) => {
       amount: tuitionOnly,
       balanceAfter: balance,
       createdAt: payDate,
-      paymentMethod: 'Cash',
+      paymentMethod: 'EVC Plus',
       receiptNumber: getNextReceipt(),
       status: 'Approved'
     });
+
+    // Add graduation fee payment (299.99) only in semester 8
+    if (sem === 8) {
+      balance -= 299.99;
+      financeData.push({
+        studentId,
+        semester: 8,
+        type: 'Payment',
+        description: 'Student paid $299.99 for Graduation Fee',
+        amount: 299.99,
+        balanceAfter: balance,
+        createdAt: gradDate,
+        paymentMethod: 'EVC Plus',
+        receiptNumber: getNextReceipt(),
+        status: 'Approved'
+      });
+    }
   }
 
   await Finance.insertMany(financeData);

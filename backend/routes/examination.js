@@ -17,7 +17,9 @@ import {
   getPassFailSummary,
   revalidateGraduationEligibility,
   getEligibleStudentsSummary,
-  checkCertificateEligibility
+  checkCertificateEligibility,
+  approveNameCorrection,
+  // getNameCorrectionRequests
 } from '../controllers/examinationController.js';
 
 const router = express.Router();
@@ -56,7 +58,11 @@ router.get("/pass-fail-summary", getPassFailSummary);
 router.get("/stats", getExaminationStats);
 
 // 🆕 Name Correction Uploads
+// router.get('/name-corrections', getNameCorrectionRequests); // 👈 ADD THIS
+
 router.post('/request-name-correction', requestNameCorrection);
+router.post('/name-correction-approve', approveNameCorrection); // 🆕 Add the route here
+
 router.post('/upload-passport', upload.single('document'), uploadNameCorrectionDoc);
 // ✅ Eligibility route for mobile app
 router.get('/status/:studentId', checkCertificateEligibility);
