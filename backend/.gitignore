@@ -1,1 +1,5 @@
-.envgit commit -m "Add ID generator and program info utilities"
+# Ignore .env files
+.env
+
+# Ignore service account key file
+backend/config/serviceAccountKey.json
