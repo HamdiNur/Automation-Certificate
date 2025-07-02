@@ -1,0 +1,619 @@
+/* ✅ Modern Re-exam Dashboard Styles */
+
+.reexam-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: #f8fafc;
+  min-height: 100vh;
+}
+
+/* ✅ Header Section */
+.reexam-header {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.student-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.student-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 24px;
+  font-weight: bold;
+}
+
+.student-details h1 {
+  margin: 0 0 8px 0;
+  font-size: 28px;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.student-meta {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.student-meta span {
+  padding: 4px 12px;
+  background: #f3f4f6;
+  border-radius: 20px;
+  font-size: 14px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.student-id {
+  background: #dbeafe !important;
+  color: #1d4ed8 !important;
+}
+
+.student-program {
+  background: #d1fae5 !important;
+  color: #065f46 !important;
+}
+
+/* ✅ Stats Grid */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.stat-card {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  text-align: center;
+  border-left: 4px solid #e5e7eb;
+  transition: transform 0.2s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+}
+
+.stat-card.total {
+  border-left-color: #3b82f6;
+}
+
+.stat-card.failed {
+  border-left-color: #ef4444;
+}
+
+.stat-card.completed {
+  border-left-color: #10b981;
+}
+
+.stat-card.progress {
+  border-left-color: #f59e0b;
+}
+
+.stat-number {
+  font-size: 32px;
+  font-weight: 700;
+  color: #1f2937;
+  margin-bottom: 4px;
+}
+
+.stat-label {
+  font-size: 14px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+/* ✅ Content Section */
+.reexam-content {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* ✅ Action Bar */
+.action-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.action-info h2 {
+  margin: 0 0 4px 0;
+  font-size: 24px;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.action-info p {
+  margin: 0 0 8px 0;
+  color: #6b7280;
+}
+
+.modified-indicator {
+  background: #fef3c7;
+  color: #92400e;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 12px;
+}
+
+/* ✅ Grade Reference */
+.grade-reference {
+  background: #f8fafc;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 24px;
+}
+
+.grade-reference h3 {
+  margin: 0 0 12px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.grade-scale {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.grade-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.grade-letter {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.grade-label {
+  font-size: 14px;
+  color: #374151;
+  font-weight: 500;
+}
+
+.grade-points {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+/* ✅ Courses Grid */
+.courses-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+  gap: 20px;
+}
+
+.course-card {
+  border: 2px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 20px;
+  background: white;
+  transition: all 0.3s ease;
+}
+
+.course-card:hover {
+  border-color: #d1d5db;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+.course-card.modified {
+  border-color: #3b82f6;
+  background: #fefbff;
+}
+
+.course-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.course-title h3 {
+  margin: 0 0 4px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.course-code {
+  font-size: 14px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.course-credits {
+  background: #f3f4f6;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+/* ✅ Grade Section */
+.grade-section {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.current-grade,
+.new-grade {
+  flex: 1;
+}
+
+.current-grade label,
+.new-grade label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.grade-display {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.grade-badge {
+  padding: 6px 12px;
+  border-radius: 6px;
+  color: white;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.grade-badge.fail {
+  background: #ef4444;
+}
+
+.grade-info {
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.grade-select {
+  width: 100%;
+  padding: 8px 12px;
+  border: 2px solid #e5e7eb;
+  border-radius: 6px;
+  font-size: 14px;
+  background: white;
+  transition: border-color 0.2s ease;
+}
+
+.grade-select:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+
+.grade-preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.arrow {
+  font-size: 20px;
+  color: #9ca3af;
+  font-weight: bold;
+}
+
+/* ✅ Course Status */
+.course-status {
+  margin-bottom: 16px;
+}
+
+.status-badge {
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.status-badge.success {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.status-badge.fail {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.status-badge.pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+/* ✅ Course Footer */
+.course-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 16px;
+  border-top: 1px solid #f3f4f6;
+}
+
+.course-meta {
+  display: flex;
+  gap: 12px;
+}
+
+.course-meta span {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+/* ✅ Buttons */
+.btn {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: #3b82f6;
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #2563eb;
+}
+
+.btn-secondary {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: #e5e7eb;
+}
+
+.btn-sm {
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  min-width: 60px;
+}
+
+.btn-sm:disabled {
+  background: #d1d5db;
+  color: #9ca3af;
+}
+
+/* ✅ Success State */
+.success-state {
+  text-align: center;
+  padding: 60px 20px;
+}
+
+.success-icon {
+  font-size: 64px;
+  margin-bottom: 16px;
+}
+
+.success-state h2 {
+  margin: 0 0 8px 0;
+  font-size: 24px;
+  font-weight: 700;
+  color: #10b981;
+}
+
+.success-state p {
+  color: #6b7280;
+  font-size: 16px;
+}
+
+/* ✅ Loading State */
+.loading-state {
+  text-align: center;
+  padding: 60px 20px;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f4f6;
+  border-top: 4px solid #3b82f6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 16px;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* ✅ Modal */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal {
+  background: white;
+  border-radius: 12px;
+  max-width: 500px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-header {
+  padding: 20px 24px 0;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.modal-body {
+  padding: 16px 24px;
+}
+
+.modal-body p {
+  margin: 0 0 16px 0;
+  color: #374151;
+  line-height: 1.5;
+}
+
+.warning-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px;
+  background: #fef3c7;
+  border-radius: 6px;
+  border-left: 4px solid #f59e0b;
+}
+
+.warning-note span:first-child {
+  font-size: 16px;
+}
+
+.warning-note span:last-child {
+  font-size: 14px;
+  color: #92400e;
+}
+
+.modal-footer {
+  padding: 0 24px 20px;
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+/* ✅ Responsive Design */
+@media (max-width: 768px) {
+  .reexam-container {
+    padding: 12px;
+  }
+
+  .student-info {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .action-bar {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .courses-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .grade-section {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .arrow {
+    transform: rotate(90deg);
+  }
+}
+
+@media (max-width: 480px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .grade-scale {
+    flex-direction: column;
+    gap: 8px;
+  }
+}
+
+/* ✅ Re-exam Notice */
+.reexam-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  background: #fef3c7;
+  border-radius: 6px;
+  border-left: 4px solid #f59e0b;
+  margin-bottom: 16px;
+  font-size: 14px;
+  color: #92400e;
+}
+
+.reexam-notice span:first-child {
+  font-size: 16px;
+}

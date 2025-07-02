@@ -79,7 +79,7 @@ function Sidebar() {
           </li>
           <li className={isActive("/requests") ? "active" : ""}>
             <FiClipboard />
-            <Link to="/requests">Clearances</Link>
+            <Link to="/requests">Cleared Students</Link>
           </li>
           <li className={isActive("/appointments") ? "active" : ""}>
             <FiCalendar />

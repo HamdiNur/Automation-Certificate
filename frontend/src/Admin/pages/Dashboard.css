@@ -788,3 +788,267 @@ table tbody tr:hover {
     content: "Action";
   }
 }
+
+
+/* New Document Status Badges */
+.badge.badge-gray {
+  background-color: #6b7280;
+  color: white;
+}
+
+.badge.badge-blue {
+  background-color: #3b82f6;
+  color: white;
+}
+
+.badge.badge-warning {
+  background-color: #f59e0b;
+  color: white;
+}
+
+.badge.badge-info {
+  background-color: #06b6d4;
+  color: white;
+}
+
+.badge.badge-success {
+  background-color: #10b981;
+  color: white;
+}
+
+.badge.badge-danger {
+  background-color: #ef4444;
+  color: white;
+}
+
+/* ✅ Enhanced Modal Styles */
+.modal {
+  max-width: 600px;
+  max-height: 80vh;
+  overflow-y: auto;
+  text-align: left; /* Override center alignment for better readability */
+}
+
+.modal h3 {
+  text-align: center;
+  margin-bottom: 20px;
+  color: #1f2937;
+}
+
+.modal p {
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+
+.modal strong {
+  color: #374151;
+}
+
+/* ✅ Better Modal Buttons */
+.modal-buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 24px;
+}
+
+.modal-buttons .btn-confirm {
+  background-color: #10b981;
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  min-width: 120px;
+}
+
+.modal-buttons .btn-confirm:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.modal-buttons .btn-cancel {
+  background-color: #6b7280;
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  min-width: 120px;
+}
+
+.modal-buttons .btn-reject {
+  background-color: #ef4444;
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  min-width: 120px;
+}
+
+/* ✅ Better Form Elements in Modal */
+.modal textarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  resize: vertical;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.modal textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.modal label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 500;
+  color: #374151;
+}
+
+/* ✅ Character Counter */
+.character-counter {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 4px;
+  text-align: right;
+}
+
+.character-counter.error {
+  color: #ef4444;
+}
+
+/* ✅ Better Table Hover Effects */
+table tbody tr:hover {
+  background-color: #f8fafc;
+  transition: background-color 0.2s ease;
+}
+
+/* ✅ Badge Icons Spacing */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 500;
+}
+
+/* ✅ Improved Button Spacing in Table */
+.btn-approve,
+.btn-reject {
+  margin-right: 8px;
+  font-size: 12px;
+  padding: 6px 12px;
+}
+
+.btn-approve:disabled,
+.btn-reject:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ✅ Loading State */
+.loading-text {
+  text-align: center;
+  padding: 40px;
+  color: #6b7280;
+  font-style: italic;
+}
+
+/* ✅ Empty State */
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: #6b7280;
+}
+
+.empty-state h3 {
+  margin-bottom: 8px;
+  color: #374151;
+}
+
+/* ✅ Search Bar Enhancement */
+.filter-bar input {
+  padding: 10px 12px;
+  width: 100%;
+  max-width: 400px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.filter-bar input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* ✅ Stats Counter */
+.stats-counter {
+  color: #6b7280;
+  font-size: 14px;
+  margin-left: auto;
+}
+
+/* ✅ Document Link Styling */
+.document-link {
+  color: #2563eb;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.document-link:hover {
+  text-decoration: underline;
+}
+
+/* ✅ Waiting Time Badge Colors */
+.badge.badge-info {
+  background-color: #06b6d4;
+}
+
+.badge.badge-warning {
+  background-color: #f59e0b;
+  color: #000;
+}
+
+.badge.badge-danger {
+  background-color: #ef4444;
+}
+
+/* ✅ Responsive Improvements */
+@media (max-width: 768px) {
+  .modal {
+    width: 95%;
+    max-width: none;
+    margin: 20px;
+  }
+
+  .modal-buttons {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .modal-buttons .btn-confirm,
+  .modal-buttons .btn-cancel,
+  .modal-buttons .btn-reject {
+    width: 100%;
+  }
+
+  .filter-bar {
+    flex-direction: column;
+  }
+
+  .filter-bar input {
+    width: 100%;
+    max-width: none;
+  }
+}

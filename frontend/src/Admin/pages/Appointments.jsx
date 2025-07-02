@@ -21,17 +21,25 @@ function Appointments() {
     }
   };
 
-  const handleCheckIn = async (studentId) => {
-    try {
-      await axios.post("http://localhost:5000/api/appointments/check-in", {
-        studentId,
-      });
-      alert("✅ Checked in!");
-      fetchAppointments();
-    } catch (err) {
-      alert("❌ Failed to check in.");
-    }
-  };
+const handleCheckIn = async (studentId) => {
+  try {
+    const token = localStorage.getItem("token"); // or sessionStorage, based on your app
+    await axios.post(
+      "http://localhost:5000/api/appointments/check-in",
+      { studentId },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    alert("✅ Checked in!");
+    fetchAppointments();
+  } catch (err) {
+    const msg = err.response?.data?.message || "Failed to check in.";
+    alert("❌ " + msg);
+  }
+};
 
   const handleReschedule = async () => {
     if (!newDate || !reason) return alert("Please provide both date and reason.");
