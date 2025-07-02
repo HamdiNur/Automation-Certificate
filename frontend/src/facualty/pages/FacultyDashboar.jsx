@@ -23,12 +23,17 @@ function FacultyDashboard() {
   const [selectedGroup, setSelectedGroup] = useState(null)
   const [showChecklistModal, setShowChecklistModal] = useState(false)
   const [showRejectModal, setShowRejectModal] = useState(false)
+
   const [checklist, setChecklist] = useState({
     thesisSubmitted: false,
     formSubmitted: false,
     paperSubmitted: false,
     supervisorComments: false,
   })
+
+  const [incompleteReasons, setIncompleteReasons] = useState("")
+  const [isEditingReasons, setIsEditingReasons] = useState(false)
+
   const [groupToReject, setGroupToReject] = useState(null)
   const [rejectionReason, setRejectionReason] = useState("")
 
@@ -67,6 +72,11 @@ function FacultyDashboard() {
             date: f.updatedAt?.slice(0, 10) || "Not updated",
             rejectionReason: f.rejectionReason || "",
             studentMongoId: firstMember?._id || firstMember || "",
+            // Add checklist state for incomplete items
+            printedThesisSubmitted: f.printedThesisSubmitted || false,
+            signedFormSubmitted: f.signedFormSubmitted || false,
+            softCopyReceived: f.softCopyReceived || false,
+            supervisorCommentsWereCorrected: f.supervisorCommentsWereCorrected || false,
           }
         }),
       )
@@ -180,6 +190,76 @@ function FacultyDashboard() {
     (r) => `${r.groupNumber}`.includes(searchTerm) || r.projectTitle.toLowerCase().includes(searchTerm.toLowerCase()),
   )
 
+  const handleIncomplete = async (groupId) => {
+    try {
+      const uncheckedFields = Object.entries(checklist)
+        .filter(([_, value]) => !value)
+        .map(([key]) => key)
+
+      if (uncheckedFields.length === 0) {
+        toast.info("✅ All checklist items are checked. Use Approve instead.")
+        return
+      }
+
+      // Update checklist first
+      await axios.patch(
+        "http://localhost:5000/api/faculty/update-checklist",
+        {
+          groupId,
+          checklist: {
+            printedThesisSubmitted: checklist.thesisSubmitted,
+            signedFormSubmitted: checklist.formSubmitted,
+            softCopyReceived: checklist.paperSubmitted,
+            supervisorCommentsWereCorrected: checklist.supervisorComments,
+          },
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      )
+
+      const reasonText = `Missing: ${uncheckedFields
+        .map((key) => {
+          switch (key) {
+            case "thesisSubmitted":
+              return "Printed and soft copies"
+            case "formSubmitted":
+              return "Signed research form"
+            case "paperSubmitted":
+              return "Soft copy of paper"
+            case "supervisorComments":
+              return "Supervisor corrections"
+            default:
+              return key
+          }
+        })
+        .join(", ")}`
+
+      await axios.post(
+        "http://localhost:5000/api/faculty/incomplete",
+        {
+          groupId,
+          rejectionReason: reasonText,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      )
+
+      toast.warning("⚠️ Marked as Incomplete.")
+      fetchRequests()
+      fetchCounts()
+      setShowChecklistModal(false)
+    } catch (err) {
+      console.error("❌ Incomplete failed:", err?.response?.data || err.message)
+      toast.error("Error saving as incomplete.")
+    }
+  }
+
   return (
     <div className="dashboard-wrapper">
       <FacultySidebar />
@@ -189,15 +269,15 @@ function FacultyDashboard() {
         {/* Dashboard Stats Widgets */}
         <div className="faculty-widgets">
           <div className="widget-card">
-            <h3>⏳ Pending Requests</h3>
+            <h3>Pending Requests</h3>
             <p className="pending">{counts.pending}</p>
           </div>
           <div className="widget-card">
-            <h3> ✅ Approved</h3>
+            <h3>Approved</h3>
             <p className="approved">{counts.approved}</p>
           </div>
           <div className="widget-card">
-            <h3>❌ Rejected</h3>
+            <h3>Rejected</h3>
             <p className="rejected">{counts.rejected}</p>
           </div>
         </div>
@@ -236,7 +316,7 @@ function FacultyDashboard() {
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan="8" style={{ textAlign: "center", padding: "20px", color: "#666" }}>
+                  <td colSpan="7" style={{ textAlign: "center", padding: "20px", color: "#666" }}>
                     {searchTerm ? `No requests found matching "${searchTerm}"` : "No requests found."}
                   </td>
                 </tr>
@@ -252,22 +332,35 @@ function FacultyDashboard() {
                     <td>{r.date}</td>
                     <td>{r.rejectionReason || "—"}</td>
                     <td>
-                      {r.status === "Pending" ? (
+                      {r.status === "Pending" || r.status === "Incomplete" ? (
                         <>
                           <button
                             className="btn-approve"
                             onClick={() => {
                               setSelectedGroup(r)
-                              setChecklist({
-                                thesisSubmitted: false,
-                                formSubmitted: false,
-                                paperSubmitted: false,
-                                supervisorComments: false,
-                              })
+                              // Load previous checklist state for incomplete items
+                              if (r.status === "Incomplete") {
+                                setChecklist({
+                                  thesisSubmitted: r.printedThesisSubmitted,
+                                  formSubmitted: r.signedFormSubmitted,
+                                  paperSubmitted: r.softCopyReceived,
+                                  supervisorComments: r.supervisorCommentsWereCorrected,
+                                })
+                                setIncompleteReasons(r.rejectionReason || "")
+                              } else {
+                                setChecklist({
+                                  thesisSubmitted: false,
+                                  formSubmitted: false,
+                                  paperSubmitted: false,
+                                  supervisorComments: false,
+                                })
+                                setIncompleteReasons("")
+                              }
+                              setIsEditingReasons(false)
                               setShowChecklistModal(true)
                             }}
                           >
-                            Approve
+                            {r.status === "Incomplete" ? "Review" : "Approve"}
                           </button>
                           <button
                             className="btn-reject"
@@ -292,34 +385,122 @@ function FacultyDashboard() {
         </div>
       </div>
 
-      {/* Checklist Modal */}
       {showChecklistModal && selectedGroup && (
         <div className="modal-overlay">
           <div className="modal">
-            <h3>Faculty Clearance Checklist</h3>
-            {[
-              ["thesisSubmitted", "Printed and soft copies submitted"],
-              ["formSubmitted", "Signed research form submitted"],
-              ["paperSubmitted", "Soft copy of paper submitted"],
-              ["supervisorComments", "Supervisor corrections made"],
-            ].map(([field, label]) => (
-              <div key={field}>
-                <label>
-                  <input type="checkbox" checked={checklist[field]} onChange={() => handleChecklistChange(field)} />{" "}
-                  {label}
-                </label>
+            <h3>Faculty Clearance Checklist - Group {selectedGroup.groupNumber}</h3>
+
+            {/* ✨ Simple Checklist Design */}
+            <div className="simple-checklist">
+              {[
+                ["thesisSubmitted", "Printed and soft copies submitted"],
+                ["formSubmitted", "Signed research form submitted"],
+                ["paperSubmitted", "Soft copy of paper submitted"],
+                ["supervisorComments", "Supervisor corrections made"],
+              ].map(([field, label]) => (
+        <div key={field} className="checklist-row" style={{ display: "flex", flexDirection: "column", gap: "5px", marginBottom: "15px" }}>
+  <label htmlFor={field} className="checklist-label" style={{ fontWeight: "500" }}>
+    <span className={`status-dot ${checklist[field] ? "completed" : "pending"}`} style={{ marginRight: "6px" }}>
+      {/* {checklist[field] ? "✅" : "⭕"} */}
+    </span>
+    {label}
+  </label>
+  <input
+    type="checkbox"
+    id={field}
+    checked={checklist[field]}
+    onChange={() => handleChecklistChange(field)}
+    className="simple-checkbox"
+    style={{ transform: "scale(1.3)", cursor: "pointer" }}
+  />
+</div>
+
+              ))}
+            </div>
+
+            {/* Incomplete Reasons Section - Keep existing code */}
+            {selectedGroup.status === "Incomplete" && (
+              <div
+                style={{
+                  marginTop: "20px",
+                  padding: "15px",
+                  backgroundColor: "#fff3cd",
+                  borderRadius: "8px",
+                  border: "1px solid #ffeaa7",
+                }}
+              >
+                <h4 style={{ color: "#856404", marginBottom: "10px" }}>Previous Incomplete Reasons:</h4>
+                {isEditingReasons ? (
+                  <textarea
+                    value={incompleteReasons}
+                    onChange={(e) => setIncompleteReasons(e.target.value)}
+                    style={{
+                      width: "100%",
+                      minHeight: "80px",
+                      padding: "8px",
+                      borderRadius: "4px",
+                      border: "1px solid #ddd",
+                    }}
+                    placeholder="Edit reasons..."
+                  />
+                ) : (
+                  <div
+                    style={{
+                      backgroundColor: "white",
+                      padding: "10px",
+                      borderRadius: "4px",
+                      minHeight: "60px",
+                      border: "1px solid #ddd",
+                    }}
+                  >
+                    {incompleteReasons || "No reasons provided"}
+                  </div>
+                )}
+                {/* <button
+                  onClick={() => setIsEditingReasons(!isEditingReasons)}
+                  style={{
+                    marginTop: "8px",
+                    padding: "4px 8px",
+                    fontSize: "12px",
+                    backgroundColor: "#6c757d",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "4px",
+                  }}
+                >
+                  {isEditingReasons ? "Save" : "Edit"}
+                </button> */}
               </div>
-            ))}
-            <button
-              className="btn-confirm"
-              disabled={!Object.values(checklist).every(Boolean)}
-              onClick={() => handleApprove(selectedGroup.groupId, selectedGroup.studentMongoId)}
-            >
-              Approve
-            </button>
-            <button className="btn-cancel" onClick={() => setShowChecklistModal(false)}>
-              Cancel
-            </button>
+            )}
+
+            {/* Dynamic Action Buttons - Keep existing code */}
+            <div style={{ marginTop: "20px", display: "flex", gap: "10px", flexWrap: "wrap" }}>
+              {/* Approve Button - Only show when all checked */}
+              {Object.values(checklist).every(Boolean) && (
+                <button
+                  className="btn-confirm"
+                  onClick={() => handleApprove(selectedGroup.groupId)}
+                  style={{ backgroundColor: "#28a745", flex: 1 }}
+                >
+                  ✅ Approve
+                </button>
+              )}
+
+              {/* Mark Incomplete Button - Only show when some unchecked */}
+              {!Object.values(checklist).every(Boolean) && (
+                <button
+                  className="btn-warning"
+                  onClick={() => handleIncomplete(selectedGroup.groupId)}
+                  style={{ backgroundColor: "#ffc107", color: "#000", flex: 1 }}
+                >
+                  ⚠️ Mark Incomplete
+                </button>
+              )}
+
+              <button className="btn-cancel" onClick={() => setShowChecklistModal(false)} style={{ flex: "0 0 auto" }}>
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}
