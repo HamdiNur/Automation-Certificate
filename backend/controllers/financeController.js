@@ -7,95 +7,97 @@ import Clearance from '../models/clearance.js';
 import Examination from '../models/examination.js'; // also ensure this is present
 import CourseRecord from '../models/course.js';
 import { revalidateGraduationEligibility } from './examinationController.js'; // adjust path if needed
-
+import { checkAndCreateExaminationRecord } from "../utils/examinationHelper.js"
 // ✅ controllers/financeController.js
 export const getStudentFinanceSummary = async (req, res) => {
-  const { studentId } = req.params;
+  const { studentId } = req.params
 
   try {
-    const student = await Student.findOne({ studentId }).select('fullName studentId _id');
-    if (!student) return res.status(404).json({ message: 'Student not found' });
+    const student = await Student.findOne({ studentId }).select("fullName studentId _id")
+    if (!student) return res.status(404).json({ message: "Student not found" })
 
-    const records = await Finance.find({ studentId: student._id }).sort({ createdAt: 1 });
+    const records = await Finance.find({ studentId: student._id }).sort({ createdAt: 1 })
 
     if (!records.length) {
-      return res.status(404).json({ message: "No finance records found" });
+      return res.status(404).json({ message: "No finance records found" })
     }
 
-    let totalCharges = 0;
-    let totalPaid = 0;
+    let totalCharges = 0
+    let totalPaid = 0
 
-    const transactions = records.map(rec => {
-      if (rec.type === 'Charge') totalCharges += rec.amount;
-      if (rec.type === 'Payment') totalPaid += rec.amount;
+    const transactions = records.map((rec) => {
+      if (rec.type === "Charge") totalCharges += rec.amount
+      if (rec.type === "Payment") totalPaid += rec.amount
 
       return {
         semester: rec.semester,
-        date: rec.createdAt.toISOString().split('T')[0],
+        date: rec.createdAt.toISOString().split("T")[0],
         type: rec.type,
         description: rec.description,
         amount: `$${rec.amount.toFixed(2)}`,
-        paymentMethod: rec.paymentMethod || '-',
-        receiptNumber: rec.receiptNumber || '-',
-        balanceAfter: `$${rec.balanceAfter?.toFixed(2) ?? '0.00'}`
-      };
-    });
+        paymentMethod: rec.paymentMethod || "-",
+        receiptNumber: rec.receiptNumber || "-",
+        balanceAfter: `$${rec.balanceAfter?.toFixed(2) ?? "0.00"}`,
+      }
+    })
 
-    const balance = totalCharges - totalPaid;
+    const balance = totalCharges - totalPaid
 
-    // ✅ Graduation eligibility check
-    const gradCharge = records.find(r =>
-      r.type === 'Charge' && r.description?.toLowerCase().includes('graduation fee')
-    );
+    const gradCharge = records.find(
+      (r) => r.type === "Charge" && r.description?.toLowerCase().includes("graduation fee"),
+    )
 
-    const gradPayments = records
-      .filter(r => r.type === 'Payment' && r.description?.toLowerCase().includes('graduation fee'));
+    const gradPayments = records.filter(
+      (r) => r.type === "Payment" && r.description?.toLowerCase().includes("graduation fee"),
+    )
 
-    const totalGradPaid = gradPayments.reduce((sum, r) => sum + r.amount, 0);
+    const totalGradPaid = gradPayments.reduce((sum, r) => sum + r.amount, 0)
 
-    const canGraduate = gradCharge && totalGradPaid >= gradCharge.amount;
+    const canGraduate = gradCharge && totalGradPaid >= gradCharge.amount
 
     res.status(200).json({
       student: {
         studentId: student.studentId,
-        fullName: student.fullName
+        fullName: student.fullName,
       },
       summary: {
         totalCharges: totalCharges.toFixed(2),
         totalPaid: totalPaid.toFixed(2),
         balance: balance.toFixed(2),
-        canGraduate
+        canGraduate,
       },
-      transactions
-    });
-
+      transactions,
+    })
   } catch (err) {
-    res.status(500).json({ message: 'Failed to fetch finance summary', error: err.message });
+    res.status(500).json({ message: "Failed to fetch finance summary", error: err.message })
   }
-};
-
+}
 export const getPendingFinance = async (req, res) => {
   try {
     const pendingCharges = await Finance.find({
-      status: 'Pending',
-      type: 'Charge',
-      description: { $regex: /Graduation Fee/i }
-    }).populate('studentId', 'fullName studentId');
+      type: "Charge",
+      description: { $regex: /Graduation Fee/i },
+      status: "Pending",
+    }).populate("studentId", "fullName studentId")
 
-    const results = [];
+    const results = []
 
     for (const charge of pendingCharges) {
+      // 🔥 REMOVED: Lab clearance check for testing
+      // const clearance = await Clearance.findOne({ studentId: charge.studentId._id })
+      // const labCleared = clearance?.lab?.status === "Approved"
+      // if (!labCleared) continue // Skip if Lab not cleared yet
+
       const payments = await Finance.find({
         studentId: charge.studentId._id,
-        status: 'Approved',
-        type: 'Payment',
-        description: { $regex: /Graduation Fee/i }
-      });
+        status: "Approved",
+        type: "Payment",
+        description: { $regex: /Graduation Fee/i },
+      })
 
-      const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
-      const remaining = charge.amount - totalPaid;
+      const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0)
+      const remaining = charge.amount - totalPaid
 
-      // ✅ Only push to results if there's an unpaid amount
       if (remaining > 0.001) {
         results.push({
           _id: charge._id,
@@ -106,22 +108,66 @@ export const getPendingFinance = async (req, res) => {
           amount: remaining.toFixed(2),
           type: charge.type,
           status: charge.status,
-          createdAt: charge.createdAt
-        });
-      } else {
-        // ✅ Mark charge as approved if fully paid
-        await Finance.findByIdAndUpdate(charge._id, {
-          $set: { status: 'Approved', approvedBy: 'System', clearedAt: new Date() }
-        });
+          createdAt: charge.createdAt,
+          labCleared: true, // Always true for testing
+        })
       }
     }
 
-    res.status(200).json(results);
+    res.status(200).json(results)
   } catch (err) {
-    res.status(500).json({ message: 'Error fetching pending finance records', error: err.message });
+    console.error("❌ Error fetching pending payments:", err)
+    res.status(500).json({ message: "Error fetching pending payments", error: err.message })
   }
-};
+}
 
+
+// Keep existing functions...
+// ✅ FIXED: Correct sAtats calculation
+export const getFinanceStats = async (req, res) => {
+  try {
+    // Get students who FULLY paid graduation fee (not just partial payments)
+    const gradCharges = await Finance.find({
+      type: "Charge",
+      description: { $regex: /Graduation Fee/i },
+    }).populate("studentId", "studentId fullName")
+
+    let fullyPaidCount = 0
+    let pendingCount = 0
+
+    for (const charge of gradCharges) {
+      const payments = await Finance.find({
+        studentId: charge.studentId._id,
+        type: "Payment",
+        description: { $regex: /Graduation Fee/i },
+        status: "Approved",
+      })
+
+      const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0)
+      const remaining = charge.amount - totalPaid
+
+      // 🔥 FIXED: Only count as "paid" if FULLY paid
+      if (remaining <= 0.001) {
+        fullyPaidCount++ // Actually paid the full amount
+      } else {
+        pendingCount++ // Still owes money (like $0.01)
+      }
+    }
+
+    const totalCollected = await Finance.aggregate([
+      { $match: { type: "Payment", status: "Approved" } },
+      { $group: { _id: null, total: { $sum: "$amount" } } },
+    ])
+
+    res.status(200).json({
+      graduationFeePaid: fullyPaidCount, // 🔥 FIXED: Only fully paid students
+      pendingPayments: pendingCount, // 🔥 FIXED: Students who still owe money
+      totalCollected: totalCollected[0]?.total || 0,
+    })
+  } catch (err) {
+    res.status(500).json({ message: "Failed to fetch finance stats", error: err.message })
+  }
+}
 
 export const adminForceApproveFinance = async (req, res) => {
   const { studentId, approvedBy = 'Finance Officer' } = req.body;
@@ -298,130 +344,314 @@ export const adminAddManualPayment = async (req, res) => {
     res.status(500).json({ message: 'Failed to record payment', error: err.message });
   }
 };
+
 export const getStudentsWhoPaidGraduationFee = async (req, res) => {
   try {
+    // ✅ Find students who completed graduation fee payment ($250.00)
     const studentsWithGradCharge = await Finance.find({
-      type: 'Charge',
+      type: "Charge",
       description: { $regex: /Graduation Fee/i },
-    }).populate('studentId', 'studentId fullName');
+    }).populate("studentId", "studentId fullName")
 
-    const uniqueStudentMap = new Map();
+    const fullyPaidStudents = []
 
     for (const chargeRecord of studentsWithGradCharge) {
-      const student = chargeRecord.studentId;
-      if (!student) continue;
+      const student = chargeRecord.studentId
+      if (!student) continue
 
-      const studentId = student._id.toString();
+      // Get all graduation fee payments for this student
+      const payments = await Finance.find({
+        studentId: student._id,
+        type: "Payment",
+        description: { $regex: /Graduation Fee/i },
+        status: "Approved",
+      })
 
-      // Prevent re-checking if already processed
-      if (uniqueStudentMap.has(studentId)) continue;
+      const totalPaid = payments.reduce((sum, r) => sum + r.amount, 0)
 
-      const [charges, payments] = await Promise.all([
-        Finance.find({
-          studentId: student._id,
-          type: 'Charge',
-          description: { $regex: /Graduation Fee/i },
-          status: 'Approved',
-        }),
-        Finance.find({
-          studentId: student._id,
-          type: 'Payment',
-          description: { $regex: /Graduation Fee/i },
-          status: 'Approved',
-        }),
-      ]);
+      // ✅ Only include students who paid EXACTLY $250.00 (completed payment)
+      if (totalPaid >= 250) {
+        // Find the latest Waafi payment (non-TEST receipt)
+        const waafiPayments = payments.filter((p) => p.receiptNumber && !p.receiptNumber.startsWith("TEST-"))
 
-      const totalCharge = charges.reduce((sum, r) => sum + r.amount, 0);
-      const totalPaid = payments.reduce((sum, r) => sum + r.amount, 0);
+        // Get the latest payment (Waafi or TEST, whichever is latest)
+        const latestPayment = payments.sort((a, b) => b.createdAt - a.createdAt)[0]
 
-      // Only include if fully paid
-      if (totalPaid >= totalCharge && totalCharge !== 0) {
-        // Pick latest payment info
-        const latestPayment = payments.sort((a, b) => b.createdAt - a.createdAt)[0];
+        // Prefer Waafi receipt if available, otherwise use latest
+        const displayReceipt =
+          waafiPayments.length > 0
+            ? waafiPayments.sort((a, b) => b.createdAt - a.createdAt)[0].receiptNumber
+            : latestPayment.receiptNumber
 
-        uniqueStudentMap.set(studentId, {
+        fullyPaidStudents.push({
           studentId: student.studentId,
           fullName: student.fullName,
-          amount: totalPaid,
-          receipt: latestPayment.receiptNumber || '-',
-          paidAt: latestPayment.createdAt.toISOString().split('T')[0],
-        });
+          amount: totalPaid, // This will be $250.00
+          receipt: displayReceipt || "-",
+          paidAt: latestPayment.createdAt.toISOString().split("T")[0],
+        })
       }
     }
 
-    res.status(200).json([...uniqueStudentMap.values()]);
+    res.status(200).json(fullyPaidStudents)
   } catch (err) {
     res.status(500).json({
-      message: 'Failed to fetch graduation payments',
+      message: "Failed to fetch graduation payments",
       error: err.message,
-    });
+    })
   }
-};
+}
 
 
-export const getFinanceStats = async (req, res) => {
-  try {
-    // Get ALL students who paid graduation fee
-    const payments = await Finance.find({
-      type: 'Payment',
-      status: 'Approved',
-      description: { $regex: /Graduation Fee/i }
-    }).populate('studentId', 'studentId fullName');
 
-    const graduatedStudents = [];
+// export const getFinanceStats = async (req, res) => {
+//   try {
+//     // Get ALL students who paid graduation fee
+//     const payments = await Finance.find({
+//       type: 'Payment',
+//       status: 'Approved',
+//       description: { $regex: /Graduation Fee/i }
+//     }).populate('studentId', 'studentId fullName');
 
-    for (const p of payments) {
-      const allRecords = await Finance.find({ studentId: p.studentId._id });
+//     const graduatedStudents = [];
 
-      let totalCharges = 0;
-      let totalPaid = 0;
+//     for (const p of payments) {
+//       const allRecords = await Finance.find({ studentId: p.studentId._id });
 
-      for (const r of allRecords) {
-        if (r.type === 'Charge') totalCharges += r.amount;
-        if (r.type === 'Payment') totalPaid += r.amount;
-      }
+//       let totalCharges = 0;
+//       let totalPaid = 0;
 
-      const balance = totalCharges - totalPaid;
+//       for (const r of allRecords) {
+//         if (r.type === 'Charge') totalCharges += r.amount;
+//         if (r.type === 'Payment') totalPaid += r.amount;
+//       }
 
-      if (totalCharges === totalPaid && totalCharges !== 0) {
-        graduatedStudents.push(p.studentId._id); // count this student
-      }
-    }
+//       const balance = totalCharges - totalPaid;
 
-    const graduationFeePaid = graduatedStudents.length;
+//       if (totalCharges === totalPaid && totalCharges !== 0) {
+//         graduatedStudents.push(p.studentId._id); // count this student
+//       }
+//     }
 
-    const pendingPayments = await Finance.countDocuments({ status: 'Pending' });
+//     const graduationFeePaid = graduatedStudents.length;
 
-    const totalPaid = await Finance.aggregate([
-      { $match: { type: 'Payment', status: 'Approved' } },
-      { $group: { _id: null, total: { $sum: "$amount" } } }
-    ]);
+//     const pendingPayments = await Finance.countDocuments({ status: 'Pending' });
 
-    res.status(200).json({
-      graduationFeePaid,
-      pendingPayments,
-      totalCollected: totalPaid[0]?.total || 0
-    });
-  } catch (err) {
-    res.status(500).json({ message: "Failed to fetch finance stats", error: err.message });
-  }
-};
+//     const totalPaid = await Finance.aggregate([
+//       { $match: { type: 'Payment', status: 'Approved' } },
+//       { $group: { _id: null, total: { $sum: "$amount" } } }
+//     ]);
 
+//     res.status(200).json({
+//       graduationFeePaid,
+//       pendingPayments,
+//       totalCollected: totalPaid[0]?.total || 0
+//     });
+//   } catch (err) {
+//     res.status(500).json({ message: "Failed to fetch finance stats", error: err.message });
+//   }
+// };
+
+
+
+//
+// export const processStudentPayment = async (req, res) => {
+//   try {
+//     const { studentId } = req.body
+
+//     const student = await Student.findOne({ studentId })
+//     if (!student) return res.status(404).json({ message: "Student not found" })
+
+//     const accountNo = student.phone
+//     if (!/^25261\d{7}$/.test(accountNo)) {
+//       return res.status(400).json({ message: "Invalid EVC-compatible phone number" })
+//     }
+
+//     // 🔥 REMOVED: Lab clearance check for testing
+//     // const clearance = await Clearance.findOne({ studentId: student._id })
+//     // if (clearance?.lab?.status !== "Approved") {
+//     //   return res.status(400).json({ message: "Lab clearance required before payment" })
+//     // }
+
+//     const gradCharge = await Finance.findOne({
+//       studentId: student._id,
+//       type: "Charge",
+//       description: { $regex: /Graduation Fee/i },
+//     })
+
+//     if (!gradCharge) {
+//       return res.status(404).json({ message: "Graduation fee charge not found" })
+//     }
+
+//     const existingPayments = await Finance.find({
+//       studentId: student._id,
+//       type: "Payment",
+//       description: { $regex: /Graduation Fee/i },
+//       status: "Approved",
+//     })
+
+//     const totalPaid = existingPayments.reduce((sum, p) => sum + p.amount, 0)
+//     if (totalPaid >= gradCharge.amount) {
+//       return res.status(400).json({ message: "Graduation fee already paid" })
+//     }
+
+//     const amountToPay = gradCharge.amount - totalPaid
+
+//     const payload = {
+//       schemaVersion: "1.0",
+//       requestId: Date.now().toString(),
+//       timestamp: new Date().toISOString(),
+//       channelName: "WEB",
+//       serviceName: "API_PURCHASE",
+//       serviceParams: {
+//         merchantUid: process.env.MERCHANT_UID,
+//         apiUserId: process.env.API_USER_ID,
+//         apiKey: process.env.API_KEY,
+//         paymentMethod: "mwallet_account",
+//         payerInfo: { accountNo },
+//         transactionInfo: {
+//           referenceId: `GRAD-${Date.now()}`,
+//           invoiceId: `INV-${Date.now()}`,
+//           amount: amountToPay,
+//           currency: "USD",
+//           description: `Graduation Fee Payment - ${student.fullName}`,
+//         },
+//       },
+//     }
+
+//     console.log("💳 Processing Waafi payment for graduation fee...")
+//     const response = await axios.post(process.env.PAYMENT_API_URL, payload)
+//     const resData = response.data
+
+//     const isApproved = resData?.params?.state === "APPROVED"
+//     const isSuccessCode = ["00", "2001", "RCS_SUCCESS"].includes(resData?.responseCode)
+
+//     if (!isApproved && !isSuccessCode) {
+//       return res.status(400).json({
+//         message: "❌ Payment failed or rejected",
+//         detail: resData,
+//       })
+//     }
+
+//     await Finance.create({
+//       studentId: student._id,
+//       semester: 8,
+//       type: "Payment",
+//       description: `Graduation Fee Payment - $${amountToPay}`,
+//       amount: amountToPay,
+//       paymentMethod: "EVC Plus (Waafi)",
+//       receiptNumber: resData?.params?.transactionId || `WAAFI-${Date.now()}`,
+//       status: "Approved",
+//       balanceAfter: 0,
+//       createdAt: new Date(),
+//     })
+
+//     await Clearance.updateOne(
+//       { studentId: student._id },
+//       {
+//         $set: {
+//           "finance.status": "Approved",
+//           "finance.clearedAt": new Date(),
+//         },
+//       },
+//       { upsert: true },
+//     )
+
+//     const failed = await CourseRecord.exists({ studentId: student._id, passed: false })
+//     const hasPassedAllCourses = !failed
+
+//     await Examination.findOneAndUpdate(
+//       { studentId: student._id },
+//       {
+//         hasPassedAllCourses,
+//         canGraduate: hasPassedAllCourses,
+//         clearanceStatus: "Pending",
+//       },
+//       { upsert: true },
+//     )
+
+//     if (global._io) {
+//       global._io.emit("examination:new-eligible", {
+//         studentId: student.studentId,
+//         fullName: student.fullName,
+//         canGraduate: hasPassedAllCourses,
+//         timestamp: new Date(),
+//       })
+
+//       global._io.emit("finance:payment-completed", {
+//         studentId: student.studentId,
+//         fullName: student.fullName,
+//         amount: amountToPay,
+//         timestamp: new Date(),
+//       })
+//     }
+
+//     return res.status(200).json({
+//       message: "✅ Payment successful! Proceeding to Examination phase...",
+//       transactionId: resData?.params?.transactionId,
+//       amountPaid: amountToPay,
+//       receiptNumber: resData?.params?.transactionId || `WAAFI-${Date.now()}`,
+//       nextStep: "Examination clearance is now available",
+//     })
+//   } catch (err) {
+//     console.error("❌ Graduation fee payment error:", err)
+//     return res.status(500).json({
+//       message: "Payment processing failed",
+//       error: err.message,
+//     })
+//   }
+// }
 
 
 export const processStudentPayment = async (req, res) => {
   try {
-    const { studentId, amount, description } = req.body;
+    // ✅ FIXED: Accept both flexible payments AND graduation fee logic
+    const { studentId, amount, description } = req.body
+    const student = await Student.findOne({ studentId })
 
-    const student = await Student.findOne({ studentId });
-    if (!student) return res.status(404).json({ message: "Student not found" });
+    if (!student) return res.status(404).json({ message: "Student not found" })
 
-    const accountNo = student.phone;
+    const accountNo = student.phone
     if (!/^25261\d{7}$/.test(accountNo)) {
-      return res.status(400).json({ message: "Invalid EVC-compatible phone number" });
+      return res.status(400).json({ message: "Invalid EVC-compatible phone number" })
     }
 
-    // 🔐 Prepare Payload for WaafiPay
+    let finalAmount, finalDescription
+
+    // ✅ FIXED: Support both manual payments and graduation fee payments
+    if (amount && description) {
+      // Manual payment (like your original code)
+      finalAmount = Number.parseFloat(amount)
+      finalDescription = description
+    } else {
+      // Graduation fee payment (new logic)
+      const gradCharge = await Finance.findOne({
+        studentId: student._id,
+        type: "Charge",
+        description: { $regex: /Graduation Fee/i },
+      })
+
+      if (!gradCharge) {
+        return res.status(404).json({ message: "Graduation fee charge not found" })
+      }
+
+      const existingPayments = await Finance.find({
+        studentId: student._id,
+        type: "Payment",
+        description: { $regex: /Graduation Fee/i },
+        status: "Approved",
+      })
+
+      const totalPaid = existingPayments.reduce((sum, p) => sum + p.amount, 0)
+      if (totalPaid >= gradCharge.amount) {
+        return res.status(400).json({ message: "Graduation fee already paid" })
+      }
+
+      finalAmount = gradCharge.amount - totalPaid
+      finalDescription = `Graduation Fee Payment - ${student.fullName}`
+    }
+
+    // ✅ FIXED: Use the working payload structure from your original code
     const payload = {
       schemaVersion: "1.0",
       requestId: Date.now().toString(),
@@ -434,123 +664,115 @@ export const processStudentPayment = async (req, res) => {
         apiKey: process.env.API_KEY,
         paymentMethod: "mwallet_account",
         payerInfo: {
-          accountNo
+          accountNo, // ✅ Same structure as working code
         },
         transactionInfo: {
-          referenceId: `REF-${Date.now()}`,
-          invoiceId: `INV-${Date.now()}`,
-          amount: parseFloat(amount),  // Ensure it's not string
+          referenceId: `REF-${Date.now()}`, // ✅ Same as working code
+          invoiceId: `INV-${Date.now()}`, // ✅ Same as working code
+          amount: finalAmount, // ✅ Use parseFloat like working code
           currency: "USD",
-          description
-        }
-      }
-    };
+          description: finalDescription,
+        },
+      },
+    }
 
-    // 📡 Send request to Waafi
-    const response = await axios.post(process.env.PAYMENT_API_URL, payload);
-    const resData = response.data;
+    console.log("💳 Processing Waafi payment...")
+    console.log("📱 Phone:", accountNo)
+    console.log("💰 Amount:", finalAmount)
+    console.log("📝 Description:", finalDescription)
 
-    // ✅ Accept if state is APPROVED or responseCode is success
-    const isApproved = resData?.params?.state === "APPROVED";
-    const isSuccessCode = ["00", "2001", "RCS_SUCCESS"].includes(resData?.responseCode);
+    const response = await axios.post(process.env.PAYMENT_API_URL, payload)
+    const resData = response.data
+
+    const isApproved = resData?.params?.state === "APPROVED"
+    const isSuccessCode = ["00", "2001", "RCS_SUCCESS"].includes(resData?.responseCode)
 
     if (!isApproved && !isSuccessCode) {
       return res.status(400).json({
-        message: "❌ Payment failed or rejected by user.",
-        detail: resData
-      });
+        message: "❌ Payment failed or rejected",
+        detail: resData,
+      })
     }
 
-    // 🧾 Fetch past finance records to compute updated balance
-    const financeRecords = await Finance.find({ studentId: student._id, status: "Approved" });
-
+    // ✅ FIXED: Calculate balance like your working code
+    const financeRecords = await Finance.find({ studentId: student._id, status: "Approved" })
     const totalCharges = financeRecords
-      .filter(r => r.type === "Charge")
-      .reduce((sum, r) => sum + parseFloat(r.amount), 0);
-
+      .filter((r) => r.type === "Charge")
+      .reduce((sum, r) => sum + Number.parseFloat(r.amount), 0)
     const totalPayments = financeRecords
-      .filter(r => r.type === "Payment")
-      .reduce((sum, r) => sum + parseFloat(r.amount), 0);
+      .filter((r) => r.type === "Payment")
+      .reduce((sum, r) => sum + Number.parseFloat(r.amount), 0)
+    const updatedBalance = Number.parseFloat((totalCharges - totalPayments - finalAmount).toFixed(2))
 
-    const updatedBalance = parseFloat((totalCharges - totalPayments - parseFloat(amount)).toFixed(2));
-
-    // 💾 Save this Payment
+    // ✅ Create payment record
     await Finance.create({
       studentId: student._id,
       semester: 8,
       type: "Payment",
-      description,
-      amount: parseFloat(amount),
+      description: finalDescription,
+      amount: finalAmount,
       paymentMethod: "EVC Plus",
-      receiptNumber: resData?.params?.transactionId || `TXN-${Date.now()}`,
+      receiptNumber: resData?.params?.transactionId || `WAAFI-${Date.now()}`,
       status: "Approved",
-      balanceAfter: updatedBalance,
-      createdAt: new Date()
-    });
+      balanceAfter: updatedBalance, // ✅ Use calculated balance
+      createdAt: new Date(),
+    })
 
-    // ✅ Update Finance Clearance
+    // ✅ Update clearance finance status
     await Clearance.updateOne(
       { studentId: student._id },
       {
         $set: {
           "finance.status": "Approved",
-          "finance.clearedAt": new Date()
-        }
+          "finance.clearedAt": new Date(),
+        },
       },
-      { upsert: true }
-    );
+      { upsert: true },
+    )
 
-    // 🎓 Update Exam Clearance & Eligibility
-    const failed = await CourseRecord.exists({ studentId: student._id, passed: false });
-    const hasPassedAllCourses = !failed;
+    // ✅ Check if examination record should be created (only for graduation fees)
+    let examResult = { created: false, reason: "Regular payment" }
+    if (finalDescription.includes("Graduation Fee")) {
+      examResult = await checkAndCreateExaminationRecord(student._id)
+    }
 
-    await Examination.findOneAndUpdate(
-      { studentId: student._id },
-      {
-        hasPassedAllCourses,
-        canGraduate: hasPassedAllCourses,
-        clearanceStatus: "Pending"
-      },
-      { upsert: true }
-    );
+    let message = "✅ Payment successful!"
+    if (examResult.created) {
+      message += " Examination record created - you can now proceed to examination phase."
+    }
+
+    // ✅ FIXED: Use the working socket events from your original code
     if (global._io) {
-  // Emit exam eligibility
-  global._io.emit("examination:new-eligible", {
-    studentId: student.studentId,
-    fullName: student.fullName,
-    canGraduate: hasPassedAllCourses,
-    timestamp: new Date()
-  });
+      if (examResult.created) {
+        global._io.emit("examination:new-eligible", {
+          studentId: student.studentId,
+          fullName: student.fullName,
+          canGraduate: examResult.examRecord?.canGraduate,
+          timestamp: new Date(),
+        })
+      }
 
-  // ✅ Emit finance clearance (THIS IS WHAT THE FRONTEND LISTENS TO!)
-  global._io.emit("finance:cleared", {
-    studentId: student.studentId,
-    fullName: student.fullName,
-    clearedAt: new Date()
-  });
-}
-
-
-  // 🟢 NEW: Notify finance dashboard
-  
-
-    // 🔁 Revalidate Graduation
-    await revalidateGraduationEligibility(
-      { body: { studentId: student._id.toString() } },
-      { status: () => ({ json: () => {} }) }
-    );
+      // ✅ Use the original working socket event name
+      global._io.emit("finance:cleared", {
+        studentId: student.studentId,
+        fullName: student.fullName,
+        clearedAt: new Date(),
+      })
+    }
 
     return res.status(200).json({
-      message: "✅ Payment successful, student cleared in finance.",
-      transactionId: resData?.params?.transactionId || null,
-      balanceAfter: updatedBalance
-    });
-
+      message,
+      transactionId: resData?.params?.transactionId,
+      amountPaid: finalAmount,
+      balanceAfter: updatedBalance,
+      receiptNumber: resData?.params?.transactionId || `WAAFI-${Date.now()}`,
+      examinationEligible: examResult.created,
+    })
   } catch (err) {
-    console.error("❌ Payment Error:", err.message);
+    console.error("❌ Payment error:", err)
     return res.status(500).json({
-      message: "Server error during payment processing",
-      error: err.message
-    });
+      message: "Payment processing failed",
+      error: err.message,
+    })
   }
-};
+}

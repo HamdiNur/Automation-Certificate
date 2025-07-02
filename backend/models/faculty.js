@@ -24,12 +24,11 @@ const facultySchema = new mongoose.Schema({
   facultyRemarks: { type: String },
   rejectionReason: { type: String, default: "" },
 
-status: {
-  type: String,
-  enum: ['Pending', 'Approved', 'Rejected'],
-  required: true
-}
-,
+  status: {
+    type: String,
+    enum: ["Pending", "Approved", "Rejected", "Incomplete"], // ✅ Incomplete included
+    required: true,
+  },
 
   resubmissionCount: {
     type: Number,
@@ -47,7 +46,7 @@ status: {
     {
       status: {
         type: String,
-        enum: ['Pending', 'Approved', 'Rejected']
+        enum: ['Pending', 'Approved', 'Rejected','Incomplete']
       },
       reason: String,
           startedBy: {

@@ -89,28 +89,29 @@ export const startFacultyClearance = async (req, res) => {
 
 // 🔹 Get all pending faculty records
 // controller
+//faculty records
 export const getPendingFaculty = async (req, res) => {
   try {
-    const pending = await Faculty.find({ status: 'Pending' })
+    // ✅ Fetch both Pending and Incomplete status
+    const pending = await Faculty.find({
+      status: { $in: ["Pending", "Incomplete"] },
+    })
       .populate({
-  path: 'groupId',
-  select: 'groupNumber projectTitle members',
-  populate: {
-    path: 'members',
-    model: 'Student', // Explicitly declare the model to ensure population
-    select: '_id fullName studentId'
-  }
-})
+        path: "groupId",
+        select: "groupNumber projectTitle members",
+        populate: {
+          path: "members",
+          model: "Student",
+          select: "_id fullName studentId",
+        },
+      })
+      .sort({ requestedAt: 1 }) // First come, first served
 
-      .sort({ requestedAt: 1 }); // ⬅️ First come, first served
-
-    res.status(200).json(pending);
+    res.status(200).json(pending)
   } catch (err) {
-    res.status(500).json({ message: 'Error fetching faculty requests', error: err.message });
+    res.status(500).json({ message: "Error fetching faculty requests", error: err.message })
   }
-};
-
-
+}
 
 // 🔹 Approve faculty clearance
 // ✅ Faculty Approval — Group-based logic
@@ -350,18 +351,29 @@ const actorId = req.user._id; // safer
 
 
 // 🔹 Faculty stats
+//🔹 Updated Faculty stats to include incomplete
 export const getFacultyStatusCount = async (req, res) => {
   try {
-    const pending = await Faculty.countDocuments({ status: 'Pending' });
-    const approved = await Faculty.countDocuments({ status: 'Approved' });
-    const rejected = await Faculty.countDocuments({ status: 'Rejected' });
+    const pending = await Faculty.countDocuments({ status: "Pending" })
+    const incomplete = await Faculty.countDocuments({ status: "Incomplete" })
+    const approved = await Faculty.countDocuments({ status: "Approved" })
+    const rejected = await Faculty.countDocuments({ status: "Rejected" })
 
-    res.json({ pending, approved, rejected });
+    // ✅ Include incomplete in pending count for dashboard
+    res.json({
+      pending: pending + incomplete, // Combined for dashboard display
+      approved,
+      rejected,
+      // Optional: separate counts if needed
+      pendingOnly: pending,
+      incomplete: incomplete,
+    })
   } catch (err) {
-    console.error("Error getting faculty status count:", err.message);
-    res.status(500).json({ error: "Failed to fetch status counts" });
+    console.error("Error getting faculty status count:", err.message)
+    res.status(500).json({ error: "Failed to fetch status counts" })
   }
-};
+}
+
 // 🔹 Update document checklist
 //✅ UPDATE Checklist
 // ✅ controllers/facultyController.js
@@ -489,5 +501,41 @@ export const getMyGroupFaculty = async (req, res) => {
       message: "Failed to retrieve faculty clearance status",
       error: err.message,
     });
+  }
+};
+
+
+export const markAsIncomplete = async (req, res) => {
+  const { groupId } = req.body;
+  const actorId = req.user._id;
+
+  try {
+    const faculty = await Faculty.findOne({ groupId });
+    if (!faculty) return res.status(404).json({ message: "Faculty record not found." });
+
+    const missingReasons = [];
+
+    if (!faculty.printedThesisSubmitted) missingReasons.push("Printed thesis not submitted");
+    if (!faculty.signedFormSubmitted) missingReasons.push("Signed research form not submitted");
+    if (!faculty.softCopyReceived) missingReasons.push("Soft copy not submitted");
+    if (!faculty.supervisorCommentsWereCorrected) missingReasons.push("Supervisor corrections not completed");
+
+    faculty.status = "Incomplete";
+    faculty.rejectionReason = missingReasons.join("\n");
+    faculty.updatedAt = new Date();
+
+    faculty.history.push({
+      status: "Incomplete",
+      reason: faculty.rejectionReason,
+      actor: actorId,
+      date: new Date(),
+    });
+
+    await faculty.save();
+
+    res.status(200).json({ message: "Marked as incomplete", reasons: missingReasons });
+  } catch (err) {
+    console.error("❌ Error marking as incomplete:", err.message);
+    res.status(500).json({ message: "Failed to mark as incomplete", error: err.message });
   }
 };

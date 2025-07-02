@@ -4,8 +4,8 @@ import Group from '../models/group.js';
 import Student from '../models/Student.js';
 import Clearance from '../models/clearance.js';
 import Finance from '../models/finance.js';  // ✅ ADD THIS LINE
-import { generateFinanceForStudent } from '../utils/financeGenerator.js';
-
+// import { generateFinanceForStudent } from '../utils/financeGenerator.js';
+import { checkAndCreateExaminationRecord } from "../utils/examinationHelper.js"
 
 // 🔹 Get all lab clearance records
 export const getAllLabClearances = async (req, res) => {
@@ -107,130 +107,107 @@ export const getPendingLab = async (req, res) => {
 };
 
 // 🔹 Approve lab clearance
+ //(since it's pre-generated)
+
 export const approveLab = async (req, res) => {
   try {
-    const { groupId, approvedBy, returnedItems, issues, projectTitle } = req.body;
+    const { groupId, approvedBy, returnedItems, issues } = req.body
+    const record = await Lab.findOne({ groupId })
 
-    const record = await Lab.findOne({ groupId });
     if (!record) {
-      return res.status(404).json({ message: 'Lab record not found' });
+      return res.status(404).json({ message: "Lab record not found" })
     }
 
-    const expected = (record.expectedItems || []).map(i => i.trim().toLowerCase());
+    // Your existing validation logic...
+    const expected = (record.expectedItems || []).map((i) => i.trim().toLowerCase())
     const returned = Array.isArray(returnedItems)
-      ? returnedItems.map(i => i.trim().toLowerCase())
-      : (returnedItems || '').split(',').map(i => i.trim().toLowerCase());
+      ? returnedItems.map((i) => i.trim().toLowerCase())
+      : (returnedItems || "").split(",").map((i) => i.trim().toLowerCase())
 
-    const missingItems = expected.filter(item => !returned.includes(item));
+    const missingItems = expected.filter((item) => !returned.includes(item))
 
     if (missingItems.length > 0) {
-      record.status = 'Incomplete';
-      record.issues = `Missing: ${missingItems.join(', ')}`;
+      record.status = "Incomplete"
+      record.issues = `Missing: ${missingItems.join(", ")}`
     } else {
-      record.status = 'Approved';
-      record.issues = issues || 'None';
+      record.status = "Approved"
+      record.issues = issues || "None"
     }
 
-    record.clearedAt = new Date();
-    record.approvedBy = approvedBy || 'System';
-    record.returnedItems = returned;
+    record.clearedAt = new Date()
+    record.approvedBy = approvedBy || "System"
+    record.returnedItems = returned
+    record.history = record.history || []
+    record.history.push({
+      status: record.status,
+      reason: record.status === "Incomplete" ? "Missing returned items" : issues || "All items returned",
+      actor: req.user._id,
+      date: new Date(),
+    })
 
-    // Adding this before saving the record:
-record.history = record.history || [];
-record.history.push({
-  status: record.status,
-  reason: record.status === 'Incomplete'
-    ? 'Missing returned items'
-    : issues || 'All items returned',
-  actor: req.user._id,
-  date: new Date()
-});
+    await record.save()
 
-
-
-    await record.save();
-
-    if (record.status === 'Approved') {
+    if (record.status === "Approved") {
       await Group.updateOne(
         { _id: groupId },
         {
           $set: {
-            'clearanceProgress.lab.status': 'Approved',
-            'clearanceProgress.lab.date': new Date()
-          }
-        }
-      );
+            "clearanceProgress.lab.status": "Approved",
+            "clearanceProgress.lab.date": new Date(),
+          },
+        },
+      )
     }
 
-    const students = await Student.find({ groupId }).select('_id');
-
+    // Update student clearances
+    const students = await Student.find({ groupId }).select("_id")
     for (const student of students) {
-      let clearance = await Clearance.findOne({ studentId: student._id });
-
+      let clearance = await Clearance.findOne({ studentId: student._id })
       if (!clearance) {
         clearance = new Clearance({
           studentId: student._id,
           lab: {
             status: record.status,
-            clearedAt: record.clearedAt
-          }
-        });
+            clearedAt: record.clearedAt,
+          },
+        })
       } else {
-        clearance.lab.status = record.status;
-        clearance.lab.clearedAt = record.clearedAt;
+        clearance.lab.status = record.status
+        clearance.lab.clearedAt = record.clearedAt
       }
+      await clearance.save()
 
-      await clearance.save();
-    }
-
-    if (record.status === 'Approved') {
-      for (const student of students) {
-        const clearance = await Clearance.findOne({ studentId: student._id });
-
-        const allPhaseOneCleared =
-          clearance?.faculty?.status === 'Approved' &&
-          clearance?.library?.status === 'Approved' &&
-          clearance?.lab?.status === 'Approved';
-
-        if (allPhaseOneCleared) {
-          await Finance.deleteMany({ studentId: student._id });
-          await generateFinanceForStudent(student._id);
-
-          await Clearance.updateOne(
-            { studentId: student._id },
-            {
-              $set: {
-                'finance.eligibleForFinance': true,
-                'finance.status': 'Pending'
-              }
-            }
-          );
-
-          // ✅ Emit finance notification
-          if (global._io) {
-            global._io.emit("finance:new-charge", {
-              studentId: student._id.toString(),
-              message: "Finance generated after Lab clearance",
-              timestamp: new Date()
-            });
-          }
-
-          console.log(`✅ Finance initialized and socket emitted for ${student._id}`);
+      // ✅ NEW: Check if examination record should be created
+      if (record.status === "Approved") {
+        const examResult = await checkAndCreateExaminationRecord(student._id)
+        if (examResult.created) {
+          console.log(`✅ Examination record created for student ${student._id} after lab approval`)
+        } else {
+          console.log(`ℹ️ Examination record not created for student ${student._id}: ${examResult.reason}`)
         }
       }
     }
 
-    return res.status(200).json({
-      message: record.status === 'Incomplete'
-        ? 'Lab marked as incomplete. Returned items were not complete.'
-        : 'Lab approved and clearance updated successfully.'
-    });
+    if (record.status === "Approved" && global._io) {
+      global._io.emit("lab:cleared", {
+        groupId,
+        message: "✅ Lab cleared. Students with approved finance can now proceed to examination.",
+        timestamp: new Date(),
+      })
+    }
 
+    return res.status(200).json({
+      message:
+        record.status === "Incomplete"
+          ? "Lab marked as incomplete. Returned items were not complete."
+          : "✅ Lab approved! Students with approved finance can now proceed to examination.",
+    })
   } catch (err) {
-    console.error("❌ Lab approval error:", err);
-    return res.status(500).json({ message: 'Approval failed', error: err.message });
+    console.error("❌ Lab approval error:", err)
+    return res.status(500).json({ message: "Approval failed", error: err.message })
   }
-};
+}
+
 
 
 // 🔹 Reject lab clearance
