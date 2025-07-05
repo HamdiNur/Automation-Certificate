@@ -5,9 +5,11 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Dashboard from "./Admin/pages/Dashboard";
 import Requests from "./Admin/pages/Request";
 import Login from "./Admin/pages/Login";
-import StudentDetails from "./Admin/pages/StudentDetails";
+// import StudentDetails from "./Admin/pages/ClearedStudents";
 import Appointments from "./Admin/pages/Appointments";
 import CoursesPage from "./Admin/pages/CoursesPage"; // 
+import ClearedStudents from "./Admin/pages/ClearedStudents";
+
 
 
 import Users from "./Admin/pages/Users";
@@ -60,7 +62,7 @@ function App() {
         {/* Admin */}
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/requests" element={<Requests />} />
-        <Route path="/students/:id" element={<StudentDetails />} />
+        <Route path="/students/:id" element={<ClearedStudents />} />
         <Route path="/courses" element={<CoursesPage />} />
 <Route path="/re-exam/:studentId" element={<StudentReexamDashboardWrapper />} />
 

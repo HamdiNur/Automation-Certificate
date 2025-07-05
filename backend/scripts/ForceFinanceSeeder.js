@@ -2,7 +2,7 @@
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import Student from '../models/Student.js';
-import Clearance from '../models/Clearance.js';
+import Clearance from '../models/clearance.js';
 import Finance from '../models/finance.js';
 import { generateFinanceForStudent } from '../utils/financeGenerator.js';
 import { connectDB } from '../config/db.js';
