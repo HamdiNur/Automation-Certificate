@@ -4,9 +4,13 @@
   background-color: #0d2d63;
   color: white;
   padding: 20px;
-  position: relative; /* not fixed */
-  flex-shrink: 0;
+  position: fixed; /* ✅ change from relative to fixed */
+  top: 0;
+  left: 0;
+  z-index: 1000; /* ✅ ensure it stays on top */
+  overflow-y: auto; /* scroll internally if content is long */
 }
+
 
   
   .sidebar-modern h2.logo {
@@ -35,4 +39,9 @@
   .sidebar-modern a:hover {
     text-decoration: underline;
   }
-  
+  .main-dashboard-content {
+  margin-left: 220px; /* ✅ shift right to avoid sidebar overlap */
+  padding: 20px;
+  background-color: #f8f9fc;
+  min-height: 100vh;
+}

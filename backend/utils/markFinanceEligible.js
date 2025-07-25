@@ -1,5 +1,5 @@
 // 📁 utils/markFinanceEligible.js
-import Clearance from '../models/Clearance.js';
+import Clearance from '../models/clearance.js';
 
 export const markFinanceEligible = async (studentId) => {
   try {

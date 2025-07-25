@@ -8,6 +8,14 @@ const studentSchema = new mongoose.Schema(
       required: true,
       unique: true,
     },
+    hemisId: {
+  type: Number,
+  required: true,
+  unique: true,
+  min: 100000,
+  max: 999999,
+},
+
     fullName: {
       type: String,
       required: true,

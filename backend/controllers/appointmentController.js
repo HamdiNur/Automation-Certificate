@@ -2,7 +2,8 @@
 import Appointment from '../models/appointment.js';
 import Student from '../models/Student.js';
 import Notification from '../models/notification.js';
-import { sendFCM } from '../utils/sendFCM.js';
+//import { sendFCM } from '../utils/sendFCM.js';
+import { notifyStudent } from '../services/notificationService.js'; // ✅ Make sure this is correctly imported
 
 export const createAppointment = async (req, res) => {
   const { studentId, appointmentDate } = req.body;
@@ -15,12 +16,16 @@ export const createAppointment = async (req, res) => {
       appointmentDate: new Date(appointmentDate),
       createdBy: req.user._id,
     });
-
+    global._io.emit("appointment:created", {
+  studentId,
+  appointmentDate: appointment.appointmentDate,
+});
     res.status(201).json({ message: 'Appointment created.', appointment });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
+
 export const rescheduleAppointment = async (req, res) => {
   const { studentId, newDate, reason } = req.body;
 
@@ -31,42 +36,39 @@ export const rescheduleAppointment = async (req, res) => {
     const parsedNewDate = new Date(newDate);
     const today = new Date();
 
-    // Prevent rescheduling to past dates
     if (parsedNewDate.setHours(0, 0, 0, 0) < today.setHours(0, 0, 0, 0)) {
       return res.status(400).json({
         message: 'Please enter a valid future date.',
       });
     }
 
- // 1. Update appointment
-appointment.appointmentDate = parsedNewDate;
-appointment.rescheduleReason = reason;
-appointment.rescheduled = true;
-appointment.status = 'rescheduled';
-await appointment.save();
+    // Update appointment
+    appointment.appointmentDate = parsedNewDate;
+    appointment.rescheduleReason = reason;
+    appointment.rescheduled = true;
+    appointment.status = 'rescheduled';
+    await appointment.save();
+    await appointment.save();
 
-// 2. Prepare notification message with reason
-const message = `Your appointment has been rescheduled to ${newDate}. Reason: ${reason}`;
-
-// 3. Save notification in MongoDB
-await Notification.create({
+global._io.emit("appointment:rescheduled", {
   studentId,
-  message,
-  type: 'appointment',
-  isRead: false,
+  newDate: appointment.appointmentDate,
+  reason,
 });
 
-// 4. Send push notification (FCM)
-const student = await Student.findById(studentId);
-console.log("Student token is:", student?.fcmToken);
-if (student?.fcmToken) {
-  await sendFCM(student.fcmToken, '📅 Appointment Rescheduled', message);
-} else {
-  console.warn(`⚠️ No FCM token found for student ${studentId}`);
-}
+    const student = await Student.findById(studentId);
+    const message = `Your appointment has been rescheduled to ${newDate}. Reason: ${reason}`;
 
-res.status(200).json({ message: 'Rescheduled and student notified.', appointment });
+    await notifyStudent({
+      student,
+      title: '📅 Appointment Rescheduled',
+      message,
+      type: 'appointment',
+    });
 
+    console.log("Student token is:", student?.fcmToken); // ✅ FIXED typo
+
+    res.status(200).json({ message: 'Rescheduled and student notified.', appointment });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -98,6 +100,11 @@ export const checkInAppointment = async (req, res) => {
     appointment.checkedInBy = adminId;
 
     await appointment.save();
+    global._io.emit("appointment:checked-in", {
+  studentId,
+  attendedAt: appointment.attendedAt,
+  checkedInBy: appointment.checkedInBy,
+});
     console.log("✅ Saved Appointment:", appointment);
 
     res.status(200).json({ message: 'Check-in successful.', appointment });
@@ -107,12 +114,32 @@ export const checkInAppointment = async (req, res) => {
 };
 
 export const getAppointmentByStudent = async (req, res) => {
-  const { studentId } = req.params;
+  const studentCode = req.params.studentId;
+
   try {
-    const record = await Appointment.findOne({ studentId }).populate('studentId');
-    if (!record) return res.status(404).json({ message: 'Not found.' });
-    res.status(200).json(record);
+    console.log("🔍 Looking up student with studentId (code):", studentCode);
+
+    // Step 1: Find student by string code
+    const student = await Student.findOne({ studentId: studentCode });
+    if (!student) {
+      console.log("❌ Student not found for:", studentCode);
+      return res.status(404).json({ message: 'Student not found.' });
+    }
+
+    console.log("✅ Found student _id:", student._id);
+
+    // Step 2: Find appointment by ObjectId
+    const appointment = await Appointment.findOne({ studentId: student._id }).populate('studentId');
+    if (!appointment) {
+      console.log("❌ Appointment not found for student:", student._id);
+      return res.status(404).json({ message: 'Appointment not found.' });
+    }
+
+    console.log("✅ Appointment found:", appointment.appointmentDate);
+    res.status(200).json(appointment);
+
   } catch (err) {
+    console.error("❌ ERROR in getAppointmentByStudent:", err.message);
     res.status(500).json({ error: err.message });
   }
 };
@@ -127,7 +154,6 @@ export const getAllAppointments = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
-
 
 // ✅ Get appointment status summary for a single student
 export const getAppointmentStatusByStudent = async (req, res) => {

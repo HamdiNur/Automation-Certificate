@@ -2,27 +2,32 @@ import React from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import {
   FiLogOut,
-  FiHome,
   FiUsers,
-  FiClipboard,
   FiCheckCircle,
   FiXCircle,
   FiUser,
   FiSettings,
+
 } from "react-icons/fi";
 import { FaGraduationCap } from "react-icons/fa";
 import { RiDashboardHorizontalLine } from "react-icons/ri";
+import { FaComments } from "react-icons/fa"; // ✅ Add this
 
-import { useUser } from "../../context/UserContext"; // ✅ Context import
+
+import { useSelector, useDispatch } from "react-redux"; // ✅ Redux
+import { logout } from "../../redux/slices/authSlice"; // ✅ your logout action
 import "./FacultySidebar.css";
 
 function FacultySidebar() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user } = useUser(); // ✅ Get user from context
+  const dispatch = useDispatch();
+
+  const user = useSelector((state) => state.auth.user); // ✅ Redux state
 
   const handleLogout = () => {
-    localStorage.clear(); // Clear token + user info
+    localStorage.clear(); // Clear token
+    dispatch(logout()); // ✅ Optional: clear Redux user state too
     navigate("/");
   };
 
@@ -30,7 +35,7 @@ function FacultySidebar() {
 
   return (
     <div className="sidebar-modern">
-      {/* 🔵 Top Logo with Graduation Icon */}
+      {/* 🔵 Top Logo */}
       <div className="sidebar-header">
         <div className="header-icon-title">
           <div className="icon-badge">
@@ -72,18 +77,13 @@ function FacultySidebar() {
         </div>
       </div>
 
-      {/* 📚 Navigation Links */}
+      {/* 📚 Sidebar Links */}
       <div className="sidebar-content">
         <ul className="sidebar-links">
           <li className={isActive("/faculty/dashboard") ? "active" : ""}>
             <RiDashboardHorizontalLine />
-
             <Link to="/faculty/dashboard">Dashboard</Link>
           </li>
-          {/* <li className={isActive("/faculty/requests") ? "active" : ""}>
-            <FiClipboard />
-            <Link to="/faculty/requests">Requests</Link>
-          </li> */}
           <li className={isActive("/faculty/group-members") ? "active" : ""}>
             <FiUsers />
             <Link to="/faculty/group-members">Group Members</Link>
@@ -96,6 +96,10 @@ function FacultySidebar() {
             <FiXCircle />
             <Link to="/faculty/rejected">Rejected Clearances</Link>
           </li>
+        <li className={isActive("/faculty/chat") ? "active" : ""}>
+  <FaComments />
+  <Link to="/faculty/chat">Chat Inbox</Link>
+</li>
           <li className={isActive("/faculty/profile") ? "active" : ""}>
             <FiUser />
             <Link to="/faculty/profile">Profile</Link>

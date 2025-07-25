@@ -1,71 +1,74 @@
+"use client"
+
 import React, { useEffect, useState } from "react";
 import Sidebar from "../components/Sidebar";
-import axios from "axios";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import { io } from "socket.io-client";
+
+import {
+  useGetAppointmentsQuery,
+  useCheckInAppointmentMutation,
+  useRescheduleAppointmentMutation,
+} from "../../redux/api/appointmentApiSlice";
+
 import "./Dashboard.css";
 
 function Appointments() {
-  const [appointments, setAppointments] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
-
   const [showReschedule, setShowReschedule] = useState(false);
   const [selected, setSelected] = useState(null);
   const [newDate, setNewDate] = useState("");
   const [reason, setReason] = useState("");
+  const [socket, setSocket] = useState(null);
 
-  const fetchAppointments = async () => {
+  const {
+    data: appointments = [],
+    isLoading,
+    refetch,
+  } = useGetAppointmentsQuery();
+
+  const [checkInAppointment] = useCheckInAppointmentMutation();
+  const [rescheduleAppointment] = useRescheduleAppointmentMutation();
+
+  useEffect(() => {
+    const newSocket = io("http://localhost:5000");
+    setSocket(newSocket);
+
+    newSocket.on("appointmentUpdated", (data) => {
+      toast.info(`🔄 Appointment updated for ${data.fullName}`);
+      refetch();
+    });
+
+    return () => newSocket.disconnect();
+  }, [refetch]);
+
+  const handleCheckIn = async (studentId) => {
     try {
-      const res = await axios.get("http://localhost:5000/api/appointments");
-      setAppointments(res.data);
+      await checkInAppointment(studentId).unwrap();
+      toast.success("✅ Checked in successfully");
     } catch (err) {
-      console.error("❌ Failed to load appointments", err.message);
+      toast.error("❌ Failed to check in");
     }
   };
 
-const handleCheckIn = async (studentId) => {
-  try {
-    const token = localStorage.getItem("token"); // or sessionStorage, based on your app
-    await axios.post(
-      "http://localhost:5000/api/appointments/check-in",
-      { studentId },
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
-    alert("✅ Checked in!");
-    fetchAppointments();
-  } catch (err) {
-    const msg = err.response?.data?.message || "Failed to check in.";
-    alert("❌ " + msg);
-  }
-};
-
   const handleReschedule = async () => {
-    if (!newDate || !reason) return alert("Please provide both date and reason.");
-
+    if (!newDate || !reason) return toast.error("Please provide both date and reason");
     try {
-      await axios.post("http://localhost:5000/api/appointments/reschedule", {
+      await rescheduleAppointment({
         studentId: selected.studentId._id,
         newDate,
         reason,
-      });
-      alert("✅ Appointment rescheduled!");
+      }).unwrap();
+      toast.success("✅ Appointment rescheduled");
       setShowReschedule(false);
       setSelected(null);
       setNewDate("");
       setReason("");
-      fetchAppointments();
-    }  catch (err) {
-  const msg = err.response?.data?.message || "Failed to reschedule.";
-  alert("❌ " + msg);
-}
-
+    } catch (err) {
+      toast.error("❌ Failed to reschedule appointment");
+    }
   };
-
-  useEffect(() => {
-    fetchAppointments();
-  }, []);
 
   const filtered = appointments.filter((a) =>
     a.studentId?.fullName?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -112,28 +115,24 @@ const handleCheckIn = async (studentId) => {
                 <td>{a.checkedInBy ? a.checkedInBy.fullName : "—"}</td>
                 <td>{a.rescheduled ? "Yes" : "No"}</td>
                 <td>
-                 {["scheduled", "rescheduled"].includes(a.status) && !a.checkedIn ? (
-  <>
-    <button
-      className="btn-check"
-      onClick={() => handleCheckIn(a.studentId._id)}
-    >
-      ✅ Check-In
-    </button>
-    <button
-      className="btn-reschedule"
-      onClick={() => {
-        setSelected(a);
-        setShowReschedule(true);
-      }}
-    >
-      🗓️ Reschedule
-    </button>
-  </>
-) : (
-  <span style={{ color: "#999" }}>—</span>
-)}
-
+                  {["scheduled", "rescheduled"].includes(a.status) && !a.checkedIn ? (
+                    <>
+                      <button className="btn-check" onClick={() => handleCheckIn(a.studentId._id)}>
+                        ✅ Check-In
+                      </button>
+                      <button
+                        className="btn-reschedule"
+                        onClick={() => {
+                          setSelected(a);
+                          setShowReschedule(true);
+                        }}
+                      >
+                        🗓️ Reschedule
+                      </button>
+                    </>
+                  ) : (
+                    <span style={{ color: "#999" }}>—</span>
+                  )}
                 </td>
               </tr>
             ))}
@@ -147,7 +146,6 @@ const handleCheckIn = async (studentId) => {
           </tbody>
         </table>
 
-        {/* 🔁 Reschedule Modal */}
         {showReschedule && selected && (
           <div className="modal-overlay">
             <div className="modal">
@@ -169,23 +167,24 @@ const handleCheckIn = async (studentId) => {
                 rows={3}
               />
 
-             <div className="modal-buttons">
-  <button className="btn-confirm" onClick={handleReschedule}>
-    Confirm
-  </button>
-  <button className="btn-cancel" onClick={() => {
-    setShowReschedule(false);
-    setSelected(null);
-    setNewDate("");
-    setReason("");
-  }}>
-    Cancel
-  </button>
-</div>
-
+              <div className="modal-buttons">
+                <button className="btn-confirm" onClick={handleReschedule}>Confirm</button>
+                <button
+                  className="btn-cancel"
+                  onClick={() => {
+                    setShowReschedule(false);
+                    setSelected(null);
+                    setNewDate("");
+                    setReason("");
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
         )}
+        <ToastContainer position="top-right" autoClose={3000} />
       </div>
     </div>
   );

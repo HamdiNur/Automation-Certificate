@@ -62,7 +62,7 @@ export const registerUser = async (req, res) => {
     }
 
     res.status(201).json({
-      message: 'User registered successfully',
+      message: 'User registered sucAcessfully',
       user: {
         id: user._id,
         fullName: user.fullName,
@@ -98,13 +98,14 @@ export const loginUser = async (req, res) => {
       { id: user._id, role: user.role },
       process.env.JWT_SECRET,
       {
-        expiresIn: 60 * 60 * 24 * 7, // 🕒 Token valid for 7 days
+    expiresIn: "2h" // 🕒 Token expires in 2 hours
       }
     );
 
     res.status(200).json({
       message: 'Login successful',
       token,
+      expiresIn: 2 * 60 * 60 * 1000, // in milliseconds, for frontend timer
       user: {
         id: user._id,
         fullName: user.fullName,

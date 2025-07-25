@@ -27,12 +27,25 @@ const CoursesPage = () => {
       const res = await axios.get(
         `http://localhost:5000/api/courses/all?page=${currentPage}&limit=10&search=${keyword}`,
       )
-      const flattened = res.data.data.flatMap((item) =>
-        item.courses.map((course) => ({
-          ...course,
-          student: item.student,
-        })),
-      )
+const flattened = res.data.data.flatMap((item) =>
+  item.courses.map((course) => ({
+    ...course,
+    student: {
+      _id: item._id,
+      fullName: item.fullName,
+      studentId: item.studentId,
+      program: item.program,
+      faculty: item.faculty,
+      yearOfAdmission: item.yearOfAdmission,
+      yearOfGraduation: item.yearOfGraduation
+    }
+  }))
+).sort((a, b) => {
+  if (a.student.studentId < b.student.studentId) return -1
+  if (a.student.studentId > b.student.studentId) return 1
+  return a.semester - b.semester
+})
+
       setCourses(flattened)
       setPage(res.data.page)
       setTotalPages(res.data.totalPages)
@@ -60,11 +73,12 @@ const CoursesPage = () => {
     navigate(`/re-exam/${studentId}`)
   }
 
-  const filtered = courses.filter(
-    (c) =>
-      c.student.studentId?.toLowerCase().includes(search.toLowerCase()) ||
-      c.student.fullName?.toLowerCase().includes(search.toLowerCase()),
-  )
+const filtered = courses.filter(
+  (c) =>
+    c.student?.studentId?.toLowerCase().includes(search.toLowerCase()) ||
+    c.student?.fullName?.toLowerCase().includes(search.toLowerCase())
+)
+
 
   // Calculate stats for the header cards
   const stats = {
@@ -76,17 +90,19 @@ const CoursesPage = () => {
   return (
     <div className="page-container">
       {/* Enhanced Header */}
-      <div className="page-header">
-        <div className="header-content">
-          <div className="header-title">
-            <div className="title-icon">📘</div>
-            <div>
-              <h1>Course Records</h1>
-              <p>Manage and monitor student course performance</p>
-            </div>
-          </div>
-        </div>
+ <div className="page-header">
+  <div className="header-top">
+    <button className="back-btn" onClick={() => navigate("/dashboard")}>⬅ Go Back</button>
+    <div className="title-container">
+      {/* <div className="title-icon">📘</div> */}
+      <div>
+        <h1>Course Records</h1>
+        <p>Manage and monitor student course performance</p>
       </div>
+    </div>
+  </div>
+</div>
+
 
       {/* Stats Cards */}
       <div className="stats-container">
@@ -230,18 +246,18 @@ const CoursesPage = () => {
                   ⬅ Previous
                 </button>
                 <div className="page-numbers">
-                  {[...Array(Math.min(5, totalPages))].map((_, i) => {
-                    const pageNum = Math.max(1, Math.min(page - 2 + i, totalPages - 4 + i))
-                    return (
-                      <button
-                        key={pageNum}
-                        className={`page-number ${page === pageNum ? "active" : ""}`}
-                        onClick={() => setPage(pageNum)}
-                      >
-                        {pageNum}
-                      </button>
-                    )
-                  })}
+{Array.from({ length: totalPages }, (_, i) => i + 1)
+  .slice(Math.max(0, page - 3), Math.min(totalPages, page + 2))
+  .map((pageNum) => (
+    <button
+      key={pageNum}
+      className={`page-number ${page === pageNum ? "active" : ""}`}
+      onClick={() => setPage(pageNum)}
+    >
+      {pageNum}
+    </button>
+))}
+
                 </div>
                 <button className="pagination-btn" disabled={page === totalPages} onClick={() => setPage(page + 1)}>
                   Next ➡

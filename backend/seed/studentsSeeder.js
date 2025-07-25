@@ -38,6 +38,18 @@ const generateGenderList = () => {
   return faker.helpers.shuffle(genders);
 };
 
+
+const usedHemisIds = new Set();
+
+const generateUniqueHemisId = () => {
+  let id;
+  do {
+    id = Math.floor(100000 + Math.random() * 900000); // generates 6-digit number
+  } while (usedHemisIds.has(id)); // Ensure no duplicate hemisId
+  usedHemisIds.add(id);
+  return id;
+};
+
 const seedStudents = async () => {
   try {
     await Student.deleteMany();
@@ -61,6 +73,10 @@ const seedStudents = async () => {
       const hashedPassword = await bcrypt.hash(rawPassword, 10);
       const studentId = await generateStudentUserId(PROGRAM, ADMISSION_YEAR, i - 1); // C1210001...
 
+
+      // Generate the hemisId
+      const hemisId = generateUniqueHemisId(); // Generate uniqu
+
       let classNumber = '';
       if (mode === 'Fulltime') {
         classNumber = 1 + Math.floor(indexInGroup / 50); // CA211, CA212...
@@ -72,6 +88,7 @@ const seedStudents = async () => {
 
       return {
         studentId,
+       hemisId, // ✅ Add hemisId here
         fullName,
         gender,
         motherName,

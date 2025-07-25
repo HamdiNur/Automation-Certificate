@@ -7,7 +7,6 @@ export const checkAndCreateExaminationRecord = async (studentId) => {
   try {
     // 1. Check Phase 1 clearance (Faculty + Library + Lab)
     const clearance = await Clearance.findOne({ studentId })
-
     const phase1Complete =
       clearance?.faculty?.status === "Approved" &&
       clearance?.library?.status === "Approved" &&
@@ -18,7 +17,7 @@ export const checkAndCreateExaminationRecord = async (studentId) => {
       return { created: false, reason: "Phase 1 not complete" }
     }
 
-    // 2. Check Finance status
+    // 2. Check Finance status - FIXED LOGIC
     const gradCharge = await Finance.findOne({
       studentId,
       type: "Charge",
@@ -38,7 +37,14 @@ export const checkAndCreateExaminationRecord = async (studentId) => {
     })
 
     const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0)
-    const financeApproved = totalPaid >= gradCharge.amount
+
+    // 🔥 FIXED: Consider paid if remaining ≤ $0.01
+    const remaining = gradCharge.amount - totalPaid
+    const financeApproved = remaining <= 0.01
+
+    console.log(
+      `💰 Finance check for ${studentId}: Charge=$${gradCharge.amount}, Paid=$${totalPaid}, Remaining=$${remaining.toFixed(2)}, Approved=${financeApproved}`,
+    )
 
     if (!financeApproved) {
       console.log(`Finance not approved for student ${studentId}`)
@@ -47,7 +53,6 @@ export const checkAndCreateExaminationRecord = async (studentId) => {
 
     // 3. Both conditions met - create/update examination record
     const existingExam = await Examination.findOne({ studentId })
-
     if (existingExam) {
       console.log(`Examination record already exists for student ${studentId}`)
       return { created: false, reason: "Examination record already exists" }
@@ -62,7 +67,7 @@ export const checkAndCreateExaminationRecord = async (studentId) => {
       studentId,
       hasPassedAllCourses,
       canGraduate: hasPassedAllCourses,
-      clearanceStatus: "Pending", // This is the key - created as "Pending"
+      clearanceStatus: "Pending",
       createdAt: new Date(),
     })
 

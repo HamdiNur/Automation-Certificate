@@ -1,28 +1,29 @@
-"use client";
+import React from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import {
   FaMoneyBillWave,
   FaUser,
-  FaCheckCircle,
   FaFileInvoiceDollar,
   FaSignOutAlt,
   FaComments,
   FaCog,
 } from "react-icons/fa";
-import { FaGraduationCap } from "react-icons/fa";
-
 import { RiDashboardHorizontalLine } from "react-icons/ri";
-
-import { useUser } from "../../context/UserContext"; // ✅ Import the context
+import { FaGraduationCap } from "react-icons/fa";
+import { useSelector, useDispatch } from "react-redux";
+import { logout } from "../../redux/slices/authSlice"; // ✅ Redux logout action
 import "./FinanceSidebar.css";
 
 function FinanceSidebar() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user } = useUser(); // ✅ Get user from context
+  const dispatch = useDispatch();
+
+  const user = useSelector((state) => state.auth.user); // ✅ Redux user
 
   const handleExit = () => {
-    // localStorage.clear(); // Optional
+    localStorage.clear(); // optional, since logout also clears
+    dispatch(logout());
     navigate("/");
   };
 
@@ -30,26 +31,26 @@ function FinanceSidebar() {
 
   return (
     <div className="sidebar-modern">
-          <div className="sidebar-header">
-              <div className="header-icon-title">
-                <div className="icon-badge">
-                  <FaGraduationCap className="icon-inside" />
-                </div>
-                <div>
-                  <h2 className="portal-title">Finance Portal</h2>
-                  <p className="subtitle">Clearance Management</p>
-                </div>
-              </div>
-            </div>
+      {/* Header */}
+      <div className="sidebar-header">
+        <div className="header-icon-title">
+          <div className="icon-badge">
+            <FaGraduationCap className="icon-inside" />
+          </div>
+          <div>
+            <h2 className="portal-title">Finance Portal</h2>
+            <p className="subtitle">Clearance Management</p>
+          </div>
+        </div>
+      </div>
 
+      {/* Profile */}
       <div className="profile-section">
         <div className="profile-avatar">
           <img src="/images/avatar.png" alt="Finance Member" className="avatar-image" />
         </div>
-        <h3 className="profile-name">
-          {user?.fullName || "Dr. Finance Member"}
-        </h3>
-        <span className="profile-role">{user?.role || "Finance"}</span>
+        <h3 className="profile-name">{user?.fullName || "Finance Member"}</h3>
+        <span className="profile-role">{user?.role || "finance"}</span>
 
         <div className="profile-actions">
           <button className="action-btn">
@@ -61,20 +62,17 @@ function FinanceSidebar() {
         </div>
       </div>
 
+      {/* Navigation */}
       <div className="sidebar-content">
         <ul className="sidebar-links">
-        <li className={isActive("/finance/dashboard") ? "active" : ""}>
-  <RiDashboardHorizontalLine />
-  <Link to="/finance/dashboard">Dashboard</Link>
-</li>
+          <li className={isActive("/finance/dashboard") ? "active" : ""}>
+            <RiDashboardHorizontalLine />
+            <Link to="/finance/dashboard">Dashboard</Link>
+          </li>
           <li className={isActive("/finance/payments") ? "active" : ""}>
             <FaMoneyBillWave />
             <Link to="/finance/payments">Payments</Link>
           </li>
-          {/* <li className={isActive("/finance/pending") ? "active" : ""}>
-            <FaCheckCircle />
-            <Link to="/finance/pending">Pending Approvals</Link>
-          </li> */}
           <li className={isActive("/finance/graduation-paid") ? "active" : ""}>
             <FaFileInvoiceDollar />
             <Link to="/finance/graduation-paid">Graduation Paid</Link>

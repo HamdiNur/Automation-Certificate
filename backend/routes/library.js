@@ -23,8 +23,8 @@ const router = express.Router();
 router.get('/pending', getPendingLibrary);
 // router.post('/fix-flags', fixLibraryFlags); // 🔧 Manual fixer route
 
-router.post('/approve', approveLibrary);
-router.post('/reject',rejectLibrary);
+router.post('/approve',auth, approveLibrary);
+router.post('/reject',auth, rejectLibrary);
 router.get('/stats', getLibraryStats); 
 router.get('/my-group', studentAuth, getMyGroupLibrary);
 

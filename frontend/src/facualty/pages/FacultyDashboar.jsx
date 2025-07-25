@@ -1,93 +1,92 @@
 "use client"
-
 import { useState, useEffect } from "react"
 import { io } from "socket.io-client"
-import axios from "axios"
 import FacultySidebar from "../components/FacultySidebar"
+import SkeletonTable from "../../components/loaders/skeletonTable"
+
 import { ToastContainer, toast } from "react-toastify"
 import "react-toastify/dist/ReactToastify.css"
 import "./styling/style.css"
 
+// RTK Query imports
+import {
+  useGetRequestsQuery,
+  useGetCountsQuery,
+  useApproveGroupMutation,
+  useRejectGroupMutation,
+  useMarkIncompleteMutation,
+  useUpdateChecklistMutation,
+} from "../../redux/slices/facultyApiSlice"
+
 function FacultyDashboard() {
-  // Dashboard Stats State
-  const [counts, setCounts] = useState({
-    pending: 0,
-    approved: 0,
-    rejected: 0,
+  // RTK Query hooks
+  const {
+    data: counts = { pending: 0, approved: 0, rejected: 0 },
+    refetch: refetchCounts,
+    isFetching: countsLoading,
+  } = useGetCountsQuery()
+  const {
+    data: requestsData = [],
+    isLoading: loading,
+    isFetching: requestsFetching,
+    refetch: refetchRequests,
+  } = useGetRequestsQuery()
+  const [approveGroup] = useApproveGroupMutation()
+  const [rejectGroup] = useRejectGroupMutation()
+  const [markIncomplete] = useMarkIncompleteMutation()
+  const [updateChecklist] = useUpdateChecklistMutation()
+
+  // Toolbar State
+  const [searchTerm, setSearchTerm] = useState("")
+  const [rowsPerPage, setRowsPerPage] = useState(20)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [statusFilter, setStatusFilter] = useState("All")
+  const [visibleColumns, setVisibleColumns] = useState({
+    status: true,
+    reason: true,
+    date: true,
+    actions: true,
   })
 
-  // Requests State
-  const [requests, setRequests] = useState([])
-  const [searchTerm, setSearchTerm] = useState("")
-  const [loading, setLoading] = useState(true)
+  // Refresh state
+  const [isRefreshing, setIsRefreshing] = useState(false)
+
+  // Modal State
   const [selectedGroup, setSelectedGroup] = useState(null)
   const [showChecklistModal, setShowChecklistModal] = useState(false)
   const [showRejectModal, setShowRejectModal] = useState(false)
-
   const [checklist, setChecklist] = useState({
     thesisSubmitted: false,
     formSubmitted: false,
     paperSubmitted: false,
     supervisorComments: false,
   })
-
   const [incompleteReasons, setIncompleteReasons] = useState("")
   const [isEditingReasons, setIsEditingReasons] = useState(false)
-
   const [groupToReject, setGroupToReject] = useState(null)
   const [rejectionReason, setRejectionReason] = useState("")
-
   const [socket, setSocket] = useState(null)
-  const token = localStorage.getItem("token")
 
-  // Fetch Dashboard Stats
-  const fetchCounts = async () => {
-    try {
-      const res = await axios.get("http://localhost:5000/api/faculty/status-count")
-      setCounts(res.data)
-    } catch (err) {
-      console.error("❌ Error fetching dashboard counts:", err.message)
+  // Transform requests data
+  const requests = requestsData.map((f) => {
+    const firstMember = f.groupId?.members?.[0]
+    return {
+      id: f._id,
+      groupId: f.groupId._id,
+      groupNumber: f.groupId.groupNumber,
+      projectTitle: f.thesisTitle,
+      status: f.status,
+      date: f.updatedAt?.slice(0, 10) || "Not updated",
+      rejectionReason: f.rejectionReason || "",
+      studentMongoId: firstMember?._id || firstMember || "",
+      printedThesisSubmitted: f.printedThesisSubmitted || false,
+      signedFormSubmitted: f.signedFormSubmitted || false,
+      softCopyReceived: f.softCopyReceived || false,
+      supervisorCommentsWereCorrected: f.supervisorCommentsWereCorrected || false,
     }
-  }
+  })
 
-  // Fetch Requests
-  const fetchRequests = async () => {
-    try {
-      setLoading(true)
-      const res = await axios.get("http://localhost:5000/api/faculty/pending", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-
-      setRequests(
-        res.data.map((f) => {
-          const firstMember = f.groupId?.members?.[0]
-          return {
-            id: f._id,
-            groupId: f.groupId._id,
-            groupNumber: f.groupId.groupNumber,
-            projectTitle: f.thesisTitle,
-            status: f.status,
-            date: f.updatedAt?.slice(0, 10) || "Not updated",
-            rejectionReason: f.rejectionReason || "",
-            studentMongoId: firstMember?._id || firstMember || "",
-            // Add checklist state for incomplete items
-            printedThesisSubmitted: f.printedThesisSubmitted || false,
-            signedFormSubmitted: f.signedFormSubmitted || false,
-            softCopyReceived: f.softCopyReceived || false,
-            supervisorCommentsWereCorrected: f.supervisorCommentsWereCorrected || false,
-          }
-        }),
-      )
-    } catch (err) {
-      console.error("❌ Error fetching requests:", err.response?.data || err.message)
-      toast.error("⚠️ Failed to load faculty requests.")
-    } finally {
-      setLoading(false)
-    }
-  }
-
+  // Socket setup
   useEffect(() => {
     const newSocket = io("http://localhost:5000")
     setSocket(newSocket)
@@ -98,19 +97,34 @@ function FacultyDashboard() {
 
     newSocket.on("new-clearance-request", (data) => {
       console.log("📡 New faculty request received:", data)
-      fetchRequests()
-      fetchCounts() // Refresh stats when new request comes in
+      refetchRequests()
+      refetchCounts()
       toast.info("📢 New faculty clearance request received!")
     })
-
-    fetchCounts()
-    fetchRequests()
 
     return () => {
       newSocket.disconnect()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [refetchRequests, refetchCounts])
+
+  // Filter and pagination logic
+  const filteredRequests = requests.filter((r) => {
+    const matchesSearch =
+      `${r.groupNumber}`.includes(searchTerm) || r.projectTitle.toLowerCase().includes(searchTerm.toLowerCase())
+
+    const matchesStatus = statusFilter === "All" || r.status === statusFilter
+
+    return matchesSearch && matchesStatus
+  })
+
+  const totalPages = Math.ceil(filteredRequests.length / rowsPerPage)
+  const startIndex = (currentPage - 1) * rowsPerPage
+  const paginatedRequests = filteredRequests.slice(startIndex, startIndex + rowsPerPage)
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm, statusFilter, rowsPerPage])
 
   const handleChecklistChange = (field) => {
     setChecklist((prev) => ({ ...prev, [field]: !prev[field] }))
@@ -121,74 +135,35 @@ function FacultyDashboard() {
       const allChecked = Object.values(checklist).every(Boolean)
       if (!allChecked) return toast.warning("Complete the checklist before approval.")
 
-      await axios.patch(
-        "http://localhost:5000/api/faculty/update-checklist",
-        {
-          groupId,
-          checklist: {
-            printedThesisSubmitted: checklist.thesisSubmitted,
-            signedFormSubmitted: checklist.formSubmitted,
-            softCopyReceived: checklist.paperSubmitted,
-            supervisorCommentsWereCorrected: checklist.supervisorComments,
-          },
+      await updateChecklist({
+        groupId,
+        checklist: {
+          printedThesisSubmitted: checklist.thesisSubmitted,
+          signedFormSubmitted: checklist.formSubmitted,
+          softCopyReceived: checklist.paperSubmitted,
+          supervisorCommentsWereCorrected: checklist.supervisorComments,
         },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      )
+      }).unwrap()
 
-      await axios.post(
-        "http://localhost:5000/api/faculty/approve",
-        {
-          groupId,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      )
-
+      await approveGroup(groupId).unwrap()
       toast.success("✅ Faculty approved.")
-      fetchRequests()
-      fetchCounts() // Refresh stats after approval
       setShowChecklistModal(false)
     } catch (err) {
-      console.error("❌ Approval failed:", err?.response?.data || err.message)
-      toast.error(err?.response?.data?.message || "Error during approval.")
+      console.error("❌ Approval failed:", err)
+      toast.error(err?.data?.message || "Error during approval.")
     }
   }
 
   const handleReject = async (groupId) => {
     try {
-      await axios.post(
-        "http://localhost:5000/api/faculty/reject",
-        {
-          groupId,
-          rejectionReason,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      )
-
+      await rejectGroup({ groupId, rejectionReason }).unwrap()
       toast.error("❌ Faculty request rejected.")
-      fetchRequests()
-      fetchCounts() // Refresh stats after rejection
       setShowRejectModal(false)
     } catch (err) {
       console.error("❌ Rejection failed:", err)
       toast.error("Error during rejection.")
     }
   }
-
-  const filtered = requests.filter(
-    (r) => `${r.groupNumber}`.includes(searchTerm) || r.projectTitle.toLowerCase().includes(searchTerm.toLowerCase()),
-  )
 
   const handleIncomplete = async (groupId) => {
     try {
@@ -201,24 +176,15 @@ function FacultyDashboard() {
         return
       }
 
-      // Update checklist first
-      await axios.patch(
-        "http://localhost:5000/api/faculty/update-checklist",
-        {
-          groupId,
-          checklist: {
-            printedThesisSubmitted: checklist.thesisSubmitted,
-            signedFormSubmitted: checklist.formSubmitted,
-            softCopyReceived: checklist.paperSubmitted,
-            supervisorCommentsWereCorrected: checklist.supervisorComments,
-          },
+      await updateChecklist({
+        groupId,
+        checklist: {
+          printedThesisSubmitted: checklist.thesisSubmitted,
+          signedFormSubmitted: checklist.formSubmitted,
+          softCopyReceived: checklist.paperSubmitted,
+          supervisorCommentsWereCorrected: checklist.supervisorComments,
         },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      )
+      }).unwrap()
 
       const reasonText = `Missing: ${uncheckedFields
         .map((key) => {
@@ -237,28 +203,31 @@ function FacultyDashboard() {
         })
         .join(", ")}`
 
-      await axios.post(
-        "http://localhost:5000/api/faculty/incomplete",
-        {
-          groupId,
-          rejectionReason: reasonText,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      )
-
+      await markIncomplete({ groupId, rejectionReason: reasonText }).unwrap()
       toast.warning("⚠️ Marked as Incomplete.")
-      fetchRequests()
-      fetchCounts()
       setShowChecklistModal(false)
     } catch (err) {
-      console.error("❌ Incomplete failed:", err?.response?.data || err.message)
+      console.error("❌ Incomplete failed:", err)
       toast.error("Error saving as incomplete.")
     }
   }
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true)
+    toast.info("🔄 Refreshing table data...")
+
+    try {
+      await Promise.all([refetchRequests(), refetchCounts()])
+      toast.success("✅ Table refreshed successfully!")
+    } catch (error) {
+      toast.error("❌ Failed to refresh data")
+    } finally {
+      setIsRefreshing(false)
+    }
+  }
+
+  // Check if any data is loading/fetching
+  const isAnyLoading = loading || requestsFetching || countsLoading || isRefreshing
 
   return (
     <div className="dashboard-wrapper">
@@ -285,219 +254,254 @@ function FacultyDashboard() {
         {/* Faculty Clearance Requests Section */}
         <div className="requests-section">
           <h3>Faculty Clearance Requests</h3>
-          <div className="filter-bar">
-            <input
-              type="text"
-              placeholder="🔍 Search by group number or project title..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+
+          {/* Toolbar - matching the image layout */}
+          <div className="table-toolbar">
+            <div className="toolbar-left">
+              {/* Show dropdown */}
+              <div className="toolbar-item">
+                <span>Show:</span>
+                <select
+                  value={rowsPerPage}
+                  onChange={(e) => setRowsPerPage(Number(e.target.value))}
+                  className="show-select"
+                >
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                  <option value={200}>200</option>
+                </select>
+              </div>
+
+              {/* Auto Refresh button with unified spinner */}
+              <button
+                onClick={handleRefresh}
+                className={`auto-refresh-btn ${isAnyLoading ? "spinning" : ""}`}
+                disabled={isAnyLoading}
+                title="Auto Refresh"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+                  <path d="M21 3v5h-5" />
+                  <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+                  <path d="M3 21v-5h5" />
+                </svg>
+              </button>
+
+              {/* All Status filter */}
+              <div className="toolbar-item">
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="status-select"
+                >
+                  <option value="All">All Status</option>
+                  <option value="Pending">Pending</option>
+                  <option value="Approved">Approved</option>
+                  <option value="Rejected">Rejected</option>
+                  <option value="Incomplete">Incomplete</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Search bar - right aligned */}
+            <div className="toolbar-right">
+              <div className="search-wrapper">
+                <input
+                  type="text"
+                  placeholder={`Search ${filteredRequests.length} records...`}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="search-input-toolbar"
+                />
+              </div>
+            </div>
           </div>
 
+          {/* Table */}
           <table>
             <thead>
               <tr>
                 <th>No.</th>
                 <th>Group</th>
                 <th>Project Title</th>
-                <th>Status</th>
-                <th>Date</th>
-                <th>Reason</th>
-                <th>Actions</th>
+                {visibleColumns.status && <th>Status</th>}
+                {visibleColumns.date && <th>Date</th>}
+                {visibleColumns.reason && <th>Reason</th>}
+                {visibleColumns.actions && <th>Actions</th>}
               </tr>
             </thead>
             <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan="7" style={{ textAlign: "center" }}>
-                    <div className="spinner"></div>
-                    <p>Loading faculty requests...</p>
-                  </td>
-                </tr>
-              ) : filtered.length === 0 ? (
+            {isAnyLoading ? (
+  <tr>
+    <td colSpan="7">
+      <SkeletonTable rows={5} cols={7} />
+    </td>
+  </tr>
+) : paginatedRequests.length === 0 ? (
+
                 <tr>
                   <td colSpan="7" style={{ textAlign: "center", padding: "20px", color: "#666" }}>
-                    {searchTerm ? `No requests found matching "${searchTerm}"` : "No requests found."}
+                    {searchTerm || statusFilter !== "All"
+                      ? `No requests found matching your filters`
+                      : "No requests found."}
                   </td>
                 </tr>
               ) : (
-                filtered.map((r, index) => (
+                paginatedRequests.map((r, index) => (
                   <tr key={r.id}>
-                    <td>{index + 1}</td>
+                    <td>{startIndex + index + 1}</td>
                     <td>Group {r.groupNumber}</td>
                     <td>{r.projectTitle}</td>
-                    <td>
-                      <span className={`badge ${r.status.toLowerCase()}`}>{r.status}</span>
-                    </td>
-                    <td>{r.date}</td>
-                    <td>{r.rejectionReason || "—"}</td>
-                    <td>
-                      {r.status === "Pending" || r.status === "Incomplete" ? (
-                        <>
-                          <button
-                            className="btn-approve"
-                            onClick={() => {
-                              setSelectedGroup(r)
-                              // Load previous checklist state for incomplete items
-                              if (r.status === "Incomplete") {
-                                setChecklist({
-                                  thesisSubmitted: r.printedThesisSubmitted,
-                                  formSubmitted: r.signedFormSubmitted,
-                                  paperSubmitted: r.softCopyReceived,
-                                  supervisorComments: r.supervisorCommentsWereCorrected,
-                                })
-                                setIncompleteReasons(r.rejectionReason || "")
-                              } else {
-                                setChecklist({
-                                  thesisSubmitted: false,
-                                  formSubmitted: false,
-                                  paperSubmitted: false,
-                                  supervisorComments: false,
-                                })
-                                setIncompleteReasons("")
-                              }
-                              setIsEditingReasons(false)
-                              setShowChecklistModal(true)
-                            }}
-                          >
-                            {r.status === "Incomplete" ? "Review" : "Approve"}
-                          </button>
-                          <button
-                            className="btn-reject"
-                            onClick={() => {
-                              setGroupToReject(r)
-                              setRejectionReason("")
-                              setShowRejectModal(true)
-                            }}
-                          >
-                            Reject
-                          </button>
-                        </>
-                      ) : (
-                        "—"
-                      )}
-                    </td>
+                    {visibleColumns.status && (
+                      <td>
+                        <span className={`badge ${r.status.toLowerCase()}`}>{r.status}</span>
+                      </td>
+                    )}
+                    {visibleColumns.date && <td>{r.date}</td>}
+                    {visibleColumns.reason && <td>{r.rejectionReason || "—"}</td>}
+                    {visibleColumns.actions && (
+                      <td>
+                        {r.status === "Pending" || r.status === "Incomplete" ? (
+                          <>
+                            <button
+                              className="btn-approve"
+                              onClick={() => {
+                                setSelectedGroup(r)
+                                if (r.status === "Incomplete") {
+                                  setChecklist({
+                                    thesisSubmitted: r.printedThesisSubmitted,
+                                    formSubmitted: r.signedFormSubmitted,
+                                    paperSubmitted: r.softCopyReceived,
+                                    supervisorComments: r.supervisorCommentsWereCorrected,
+                                  })
+                                  setIncompleteReasons(r.rejectionReason || "")
+                                } else {
+                                  setChecklist({
+                                    thesisSubmitted: false,
+                                    formSubmitted: false,
+                                    paperSubmitted: false,
+                                    supervisorComments: false,
+                                  })
+                                  setIncompleteReasons("")
+                                }
+                                setIsEditingReasons(false)
+                                setShowChecklistModal(true)
+                              }}
+                            >
+                              {r.status === "Incomplete" ? "Review" : "Approve"}
+                            </button>
+                            <button
+                              className="btn-reject"
+                              onClick={() => {
+                                setGroupToReject(r)
+                                setRejectionReason("")
+                                setShowRejectModal(true)
+                              }}
+                            >
+                              Reject
+                            </button>
+                          </>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                    )}
                   </tr>
                 ))
               )}
             </tbody>
           </table>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="pagination">
+              <button
+                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+                className="pagination-btn"
+              >
+                ← Previous
+              </button>
+
+              <span className="pagination-info">
+                Page {currentPage} of {totalPages} ({filteredRequests.length} total)
+              </span>
+
+              <button
+                onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+                className="pagination-btn"
+              >
+                Next →
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
+      {/* Checklist Modal */}
       {showChecklistModal && selectedGroup && (
         <div className="modal-overlay">
           <div className="modal">
             <h3>Faculty Clearance Checklist - Group {selectedGroup.groupNumber}</h3>
 
-            {/* ✨ Simple Checklist Design */}
-            <div className="simple-checklist">
+            {/* Improved Checklist Design */}
+            <div className="checklist-container">
               {[
                 ["thesisSubmitted", "Printed and soft copies submitted"],
                 ["formSubmitted", "Signed research form submitted"],
                 ["paperSubmitted", "Soft copy of paper submitted"],
                 ["supervisorComments", "Supervisor corrections made"],
               ].map(([field, label]) => (
-        <div key={field} className="checklist-row" style={{ display: "flex", flexDirection: "column", gap: "5px", marginBottom: "15px" }}>
-  <label htmlFor={field} className="checklist-label" style={{ fontWeight: "500" }}>
-    <span className={`status-dot ${checklist[field] ? "completed" : "pending"}`} style={{ marginRight: "6px" }}>
-      {/* {checklist[field] ? "✅" : "⭕"} */}
-    </span>
-    {label}
-  </label>
-  <input
-    type="checkbox"
-    id={field}
-    checked={checklist[field]}
-    onChange={() => handleChecklistChange(field)}
-    className="simple-checkbox"
-    style={{ transform: "scale(1.3)", cursor: "pointer" }}
-  />
-</div>
-
+                <div key={field} className="checklist-item">
+                  <label className="checklist-label">
+                    <input
+                      type="checkbox"
+                      checked={checklist[field]}
+                      onChange={() => handleChecklistChange(field)}
+                      className="checklist-checkbox"
+                    />
+                    <span className="checkmark"></span>
+                    <span className="label-text">{label}</span>
+                  </label>
+                </div>
               ))}
             </div>
 
-            {/* Incomplete Reasons Section - Keep existing code */}
+            {/* Incomplete Reasons Section */}
             {selectedGroup.status === "Incomplete" && (
-              <div
-                style={{
-                  marginTop: "20px",
-                  padding: "15px",
-                  backgroundColor: "#fff3cd",
-                  borderRadius: "8px",
-                  border: "1px solid #ffeaa7",
-                }}
-              >
-                <h4 style={{ color: "#856404", marginBottom: "10px" }}>Previous Incomplete Reasons:</h4>
+              <div className="incomplete-reasons">
+                <h4>Previous Incomplete Reasons:</h4>
                 {isEditingReasons ? (
                   <textarea
                     value={incompleteReasons}
                     onChange={(e) => setIncompleteReasons(e.target.value)}
-                    style={{
-                      width: "100%",
-                      minHeight: "80px",
-                      padding: "8px",
-                      borderRadius: "4px",
-                      border: "1px solid #ddd",
-                    }}
+                    className="reasons-textarea"
                     placeholder="Edit reasons..."
                   />
                 ) : (
-                  <div
-                    style={{
-                      backgroundColor: "white",
-                      padding: "10px",
-                      borderRadius: "4px",
-                      minHeight: "60px",
-                      border: "1px solid #ddd",
-                    }}
-                  >
-                    {incompleteReasons || "No reasons provided"}
-                  </div>
+                  <div className="reasons-display">{incompleteReasons || "No reasons provided"}</div>
                 )}
-                {/* <button
-                  onClick={() => setIsEditingReasons(!isEditingReasons)}
-                  style={{
-                    marginTop: "8px",
-                    padding: "4px 8px",
-                    fontSize: "12px",
-                    backgroundColor: "#6c757d",
-                    color: "white",
-                    border: "none",
-                    borderRadius: "4px",
-                  }}
-                >
-                  {isEditingReasons ? "Save" : "Edit"}
-                </button> */}
               </div>
             )}
 
-            {/* Dynamic Action Buttons - Keep existing code */}
-            <div style={{ marginTop: "20px", display: "flex", gap: "10px", flexWrap: "wrap" }}>
-              {/* Approve Button - Only show when all checked */}
+            {/* Action Buttons */}
+            <div className="modal-actions">
               {Object.values(checklist).every(Boolean) && (
-                <button
-                  className="btn-confirm"
-                  onClick={() => handleApprove(selectedGroup.groupId)}
-                  style={{ backgroundColor: "#28a745", flex: 1 }}
-                >
-                  ✅ Approve
+                <button className="btn-complete" onClick={() => handleApprove(selectedGroup.groupId)}>
+                  ✅ Complete & Approve
                 </button>
               )}
 
-              {/* Mark Incomplete Button - Only show when some unchecked */}
               {!Object.values(checklist).every(Boolean) && (
-                <button
-                  className="btn-warning"
-                  onClick={() => handleIncomplete(selectedGroup.groupId)}
-                  style={{ backgroundColor: "#ffc107", color: "#000", flex: 1 }}
-                >
+                <button className="btn-incomplete" onClick={() => handleIncomplete(selectedGroup.groupId)}>
                   ⚠️ Mark Incomplete
                 </button>
               )}
 
-              <button className="btn-cancel" onClick={() => setShowChecklistModal(false)} style={{ flex: "0 0 auto" }}>
+              <button className="btn-cancel" onClick={() => setShowChecklistModal(false)}>
                 Cancel
               </button>
             </div>
@@ -515,18 +519,20 @@ function FacultyDashboard() {
               value={rejectionReason}
               onChange={(e) => setRejectionReason(e.target.value)}
               placeholder="Enter reason..."
-              style={{ width: "100%" }}
+              className="reject-textarea"
             />
-            <button
-              className="btn-confirm"
-              disabled={!rejectionReason.trim()}
-              onClick={() => handleReject(groupToReject.groupId)}
-            >
-              Confirm Reject
-            </button>
-            <button className="btn-cancel" onClick={() => setShowRejectModal(false)}>
-              Cancel
-            </button>
+            <div className="modal-actions">
+              <button
+                className="btn-confirm"
+                disabled={!rejectionReason.trim()}
+                onClick={() => handleReject(groupToReject.groupId)}
+              >
+                Confirm Reject
+              </button>
+              <button className="btn-cancel" onClick={() => setShowRejectModal(false)}>
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}

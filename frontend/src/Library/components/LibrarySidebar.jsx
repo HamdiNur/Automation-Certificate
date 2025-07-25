@@ -7,20 +7,26 @@ import {
   FiXCircle,
   FiUser,
   FiSettings,
-  FiClipboard,
 } from "react-icons/fi";
 import { RiDashboardHorizontalLine } from "react-icons/ri";
 import { FaBook } from "react-icons/fa";
-import { useUser } from "../../context/UserContext"; // ✅ Reuse same context
-import "./LibrarySidebar.css"; // ✅ Same structure as FacultySidebar.css
+import { FaComments } from "react-icons/fa"; 
+
+import { useSelector, useDispatch } from "react-redux";
+import { logout } from "../../redux/slices/authSlice";
+
+import "./LibrarySidebar.css";
 
 function LibrarySidebar() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user } = useUser();
+  const dispatch = useDispatch();
+
+  const user = useSelector((state) => state.auth.user);
 
   const handleLogout = () => {
     localStorage.clear();
+    dispatch(logout());
     navigate("/");
   };
 
@@ -77,7 +83,6 @@ function LibrarySidebar() {
             <RiDashboardHorizontalLine />
             <Link to="/library/dashboard">Dashboard</Link>
           </li>
-        
           <li className={isActive("/library/approved") ? "active" : ""}>
             <FiCheckCircle />
             <Link to="/library/approved">Approved Submissions</Link>
@@ -86,6 +91,10 @@ function LibrarySidebar() {
             <FiXCircle />
             <Link to="/library/rejected">Rejected Submissions</Link>
           </li>
+          <li className={isActive("/library/chat") ? "active" : ""}>
+  <FaComments />
+  <Link to="/library/chat">Chat Inbox</Link>
+</li>
           <li className={isActive("/library/students") ? "active" : ""}>
             <FiUsers />
             <Link to="/library/students">Student List</Link>

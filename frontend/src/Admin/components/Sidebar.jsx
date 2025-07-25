@@ -10,17 +10,21 @@ import {
   FiBookOpen,
 } from "react-icons/fi";
 import { RiDashboardHorizontalLine } from "react-icons/ri";
-import { FaUserGraduate } from "react-icons/fa";
-import { useUser } from "../../context/UserContext"; // Adjust path if needed
-import "./Sidebar.css"; // Reuse FacultySidebar.css as Sidebar.css
+import { FaUserGraduate,FaComments } from "react-icons/fa";
+import { useSelector, useDispatch } from "react-redux";
+import { logout } from "../../redux/slices/authSlice";
+import "./Sidebar.css";
 
 function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user } = useUser();
+  const dispatch = useDispatch();
+
+  const user = useSelector((state) => state.auth.user);
 
   const handleLogout = () => {
-    localStorage.clear();
+    localStorage.clear(); // Clear localStorage
+    dispatch(logout());   // Clear Redux auth state
     navigate("/");
   };
 
@@ -32,8 +36,8 @@ function Sidebar() {
       <div className="sidebar-header">
         <div className="header-icon-title">
           <div className="icon-badge">
-  <FaUserGraduate className="icon-inside" />
-</div>
+            <FaUserGraduate className="icon-inside" />
+          </div>
           <div>
             <h2 className="portal-title">Admin Panel</h2>
             <p className="subtitle">System Dashboard</p>
@@ -97,6 +101,10 @@ function Sidebar() {
             <FiUser />
             <Link to="/users">Users</Link>
           </li>
+          <li className={isActive("/examination/chat") ? "active" : ""}>
+  <FaComments />
+  <Link to="/examination/chat">Chat Inbox</Link>
+</li>
           <li className={isActive("/profile") ? "active" : ""}>
             <FiSettings />
             <Link to="/profile">Profile</Link>

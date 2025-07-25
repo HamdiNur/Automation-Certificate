@@ -2,25 +2,29 @@ import React from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import {
   FiLogOut,
-  FiUsers,
   FiCheckCircle,
   FiXCircle,
   FiUser,
   FiSettings,
-  FiClipboard,
 } from "react-icons/fi";
 import { RiDashboardHorizontalLine } from "react-icons/ri";
-import { FaFlask } from "react-icons/fa";
-import { useUser } from "../../context/UserContext";
+import { FaFlask,FaComments } from "react-icons/fa";
+
+
+import { useSelector, useDispatch } from "react-redux";
+import { logout } from "../../redux/slices/authSlice";
 import "./LabSidebar.css";
 
 function LabSidebar() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user } = useUser();
+  const dispatch = useDispatch();
+
+  const user = useSelector((state) => state.auth.user);
 
   const handleLogout = () => {
     localStorage.clear();
+    dispatch(logout());
     navigate("/");
   };
 
@@ -77,7 +81,6 @@ function LabSidebar() {
             <RiDashboardHorizontalLine />
             <Link to="/lab/dashboard">Dashboard</Link>
           </li>
-         
           <li className={isActive("/lab/approved") ? "active" : ""}>
             <FiCheckCircle />
             <Link to="/lab/approved">Approved Returns</Link>
@@ -86,10 +89,10 @@ function LabSidebar() {
             <FiXCircle />
             <Link to="/lab/rejected">Rejected Returns</Link>
           </li>
-          {/* <li className={isActive("/lab/students") ? "active" : ""}>
-            <FiUsers />
-            <Link to="/lab/students">Student List</Link>
-          </li> */}
+          <li className={isActive("/lab/chat") ? "active" : ""}>
+  <FaComments />
+  <Link to="/lab/chat">Chat Inbox</Link>
+</li>
           <li className={isActive("/lab/profile") ? "active" : ""}>
             <FiUser />
             <Link to="/lab/profile">Profile</Link>

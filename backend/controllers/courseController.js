@@ -127,49 +127,72 @@ export const checkEligibility = async (req, res) => {
   }
 };
 // 🔹 Get course records for ALL students
+// 🔹 Get course records for ALL students with pagination, search, and sorting
 export const getAllStudentCourses = async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 20;
   const skip = (page - 1) * limit;
-
   const search = req.query.search || "";
-  const searchQuery = {
-    $or: [
-      { studentId: { $regex: search, $options: "i" } },
-      { fullName: { $regex: search, $options: "i" } }
-    ]
-  };
 
   try {
-    const totalStudents = await Student.countDocuments(searchQuery);
-    const students = await Student.find(searchQuery).skip(skip).limit(limit).lean();
-    const allRecords = [];
+    // Match condition for search
+    const matchStage = search
+      ? {
+          $or: [
+            { fullName: { $regex: search, $options: "i" } },
+            { studentId: { $regex: search, $options: "i" } }
+          ]
+        }
+      : {};
 
-    for (const student of students) {
-      const courses = await CourseRecord.find({ studentId: student._id }).lean();
-      allRecords.push({
-        student: {
-          _id: student._id,
-          fullName: student.fullName,
-          studentId: student.studentId,
-          program: student.program,
-          faculty: student.faculty
-        },
-        courses
-      });
-    }
+    // Build pipeline
+    const pipeline = [
+      { $match: matchStage },
+      { $sort: { studentId: 1 } },
+      { $skip: skip },
+      { $limit: limit },
+      {
+  $lookup: {
+    from: "courses", // this is correct now
+    localField: "_id",
+    foreignField: "studentId",
+    as: "courses"
+  
+}
+      },
+      {
+        $project: {
+          fullName: 1,
+          studentId: 1,
+          faculty: 1,
+          program: 1,
+          yearOfAdmission: 1,
+          yearOfGraduation: 1,
+          courses: 1
+        }
+      }
+    ];
 
-    const totalPages = Math.ceil(totalStudents / limit);
+    // Run aggregation
+    const data = await Student.aggregate(pipeline);
+
+    // Count total matching students for pagination
+    const totalCount = await Student.countDocuments(matchStage);
+    const totalPages = Math.ceil(totalCount / limit);
 
     res.status(200).json({
-      data: allRecords,
+      data,
       page,
       totalPages
     });
   } catch (err) {
-    res.status(500).json({ message: 'Failed to fetch student courses', error: err.message });
+    res.status(500).json({
+      message: "❌ Failed to fetch student courses",
+      error: err.message
+    });
   }
 };
+
 
 
 export const getAllPassedStudents = async (req, res) => {

@@ -1,53 +1,120 @@
 "use client"
-
 import { useState, useEffect } from "react"
+import { io } from "socket.io-client"
 import Sidebar from "../components/Sidebar"
-import "./Dashboard.css"
+import SkeletonTable from "../../components/loaders/skeletonTable"
 import { toast, ToastContainer } from "react-toastify"
+import "react-toastify/dist/ReactToastify.css"
+import "./Dashboard.css"
+
+// RTK Query imports
+import {
+  useGetNameCorrectionRequestsQuery,
+  useApproveNameCorrectionMutation,
+  useRejectNameCorrectionMutation,
+} from "../../redux/api/nameCorrectionApiSlice"
 
 function NameCorrections() {
-  const [requests, setRequests] = useState([])
+  // Toolbar State
+  const [searchTerm, setSearchTerm] = useState("")
+  const [rowsPerPage, setRowsPerPage] = useState(20)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [statusFilter, setStatusFilter] = useState("All")
+
+  // Modal State
   const [selectedRequest, setSelectedRequest] = useState(null)
   const [showModal, setShowModal] = useState(false)
   const [rejectionReason, setRejectionReason] = useState("")
   const [actionType, setActionType] = useState("")
-  const [searchTerm, setSearchTerm] = useState("")
-  const [loading, setLoading] = useState(true)
-  const [breakdown, setBreakdown] = useState({ waitingForDocument: 0, readyForReview: 0, approved: 0, rejected: 0 })
 
-  // ✅ NEW: Filter state
-  const [showCompleted, setShowCompleted] = useState(true) // Show approved/rejected by default
+  // Refresh state
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [socket, setSocket] = useState(null)
 
+  // RTK Query hooks
+  const {
+    data: requestsData = {
+      requests: [],
+      breakdown: { waitingForDocument: 0, readyForReview: 0, approved: 0, rejected: 0 },
+    },
+    isLoading: loading,
+    isFetching: requestsFetching,
+    refetch: refetchRequests,
+  } = useGetNameCorrectionRequestsQuery({
+    search: searchTerm,
+    page: currentPage,
+    limit: rowsPerPage,
+    status: statusFilter,
+  })
+
+  const [approveNameCorrection] = useApproveNameCorrectionMutation()
+  const [rejectNameCorrection] = useRejectNameCorrectionMutation()
+
+  const { requests, breakdown } = requestsData
+
+  // Socket setup
   useEffect(() => {
-    fetchNameCorrectionRequests()
-  }, [])
+    const newSocket = io("http://localhost:5000")
+    setSocket(newSocket)
 
-  const fetchNameCorrectionRequests = async () => {
-    try {
-      setLoading(true)
-      const response = await fetch("http://localhost:5000/api/examination/name-correction-requests")
-      const data = await response.json()
+    newSocket.on("connect", () => {
+      console.log("✅ Socket connected:", newSocket.id)
+    })
 
-      if (response.ok) {
-        setRequests(data.requests || [])
-        setBreakdown(data.breakdown || { waitingForDocument: 0, readyForReview: 0, approved: 0, rejected: 0 })
-      } else {
-        console.error("Failed to fetch requests:", data.message)
-        toast.error("Failed to fetch name correction requests")
-      }
-    } catch (err) {
-      console.error("Failed to fetch name corrections", err)
-      toast.error("Failed to fetch name correction requests")
-    } finally {
-      setLoading(false)
+    newSocket.on("nameCorrectionDocumentUploaded", (data) => {
+      console.log("📄 Document uploaded:", data)
+      refetchRequests()
+      toast.info(`📄 ${data.fullName} uploaded a document for review`)
+    })
+
+    newSocket.on("nameCorrectionRequested", (data) => {
+      console.log("📝 Name correction requested:", data)
+      refetchRequests()
+      toast.info(`📝 ${data.fullName} requested name correction`)
+    })
+
+    newSocket.on("nameCorrection:new-pending", (data) => {
+      console.log("⏳ New pending request:", data)
+      refetchRequests()
+      toast.info(`⏳ New name correction request from ${data.fullName}`)
+    })
+
+    newSocket.on("nameCorrectionApproved", (data) => {
+      toast.success(`✅ Name correction approved for ${data.fullName}`)
+      refetchRequests()
+    })
+
+    return () => {
+      newSocket.disconnect()
     }
-  }
+  }, [refetchRequests])
 
-  // ✅ UPDATED: Only allow actions for students with uploaded documents
+  // Filter and pagination logic
+  const filteredRequests = requests.filter((req) => {
+    const term = searchTerm.toLowerCase()
+    const matchesSearch =
+      req.fullName?.toLowerCase().includes(term) ||
+      req.studentId?.toLowerCase().includes(term) ||
+      req.requestedName?.toLowerCase().includes(term)
+
+    const matchesStatus = statusFilter === "All" || req.status === statusFilter
+
+    return matchesSearch && matchesStatus
+  })
+
+  const totalPages = Math.ceil(filteredRequests.length / rowsPerPage)
+  const startIndex = (currentPage - 1) * rowsPerPage
+  const paginatedRequests = filteredRequests.slice(startIndex, startIndex + rowsPerPage)
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm, statusFilter, rowsPerPage])
+
   const handleDecision = async (studentId, action) => {
     const request = requests.find((r) => r._id === studentId)
 
-    // ✅ Prevent actions on students who haven't uploaded documents or are already processed
+    // Prevent actions on students who haven't uploaded documents or are already processed
     if (request?.status === "Pending") {
       toast.warning("⏳ Student hasn't uploaded document yet. Cannot take action.")
       return
@@ -64,46 +131,37 @@ function NameCorrections() {
     }
 
     try {
-      let response
-
       if (action === "Approved") {
-        response = await fetch("http://localhost:5000/api/examination/name-correction-approve", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ studentId }),
-        })
+        await approveNameCorrection({ studentId }).unwrap()
+        toast.success("✅ Name correction approved successfully!")
       } else if (action === "Rejected") {
         if (!rejectionReason.trim()) {
           toast.error("Please provide a rejection reason")
           return
         }
-
-        response = await fetch(`http://localhost:5000/api/examination/name-correction-reject/${studentId}`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ rejectionReason: rejectionReason.trim() }),
-        })
+        await rejectNameCorrection({ studentId, rejectionReason: rejectionReason.trim() }).unwrap()
+        toast.success("❌ Name correction rejected successfully!")
       }
 
-      const result = await response.json()
-
-      if (response.ok) {
-        toast.success(`✅ Name correction ${action.toLowerCase()} successfully!`)
-        fetchNameCorrectionRequests() // ✅ This will now show the approved/rejected request
-        setShowModal(false)
-        setRejectionReason("")
-        setSelectedRequest(null)
-      } else {
-        toast.error(`❌ Failed to ${action.toLowerCase()}: ${result.message}`)
-        console.error("Failed:", result.message)
-      }
+      setShowModal(false)
+      setRejectionReason("")
+      setSelectedRequest(null)
     } catch (err) {
       console.error("Error processing request:", err)
-      toast.error(`❌ Error processing ${action.toLowerCase()}`)
+      toast.error(`❌ Failed to ${action.toLowerCase()}: ${err?.data?.message || err.message}`)
+    }
+  }
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true)
+    toast.info("🔄 Refreshing data...")
+    try {
+      await refetchRequests()
+      toast.success("✅ Data refreshed successfully!")
+    } catch (error) {
+      toast.error("❌ Failed to refresh data")
+    } finally {
+      setIsRefreshing(false)
     }
   }
 
@@ -113,8 +171,7 @@ function NameCorrections() {
     return `${name.firstName || ""} ${name.middleName || ""} ${name.lastName || ""}`.trim()
   }
 
-  // ✅ UPDATED: Get status badge with all states
-  const getStatusBadge = (status, actionNeeded) => {
+  const getStatusBadge = (status) => {
     switch (status) {
       case "Pending":
         return <span className="badge badge-warning">⏳ Waiting for Document</span>
@@ -129,30 +186,16 @@ function NameCorrections() {
     }
   }
 
-  // ✅ Filter requests based on search term and completion filter
-  const filteredRequests = requests.filter((req) => {
-    const term = searchTerm.toLowerCase()
-    const matchesSearch =
-      req.fullName?.toLowerCase().includes(term) ||
-      req.studentId?.toLowerCase().includes(term) ||
-      req.requestedName?.toLowerCase().includes(term)
-
-    // ✅ Filter by completion status
-    const isCompleted = ["Approved", "Rejected"].includes(req.status)
-    const matchesCompletionFilter = showCompleted || !isCompleted
-
-    return matchesSearch && matchesCompletionFilter
-  })
+  // Check if any data is loading/fetching
+  const isAnyLoading = loading || requestsFetching || isRefreshing
 
   return (
     <div className="dashboard-wrapper">
       <Sidebar />
-
       <div className="dashboard-main">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
           <h2>📝 Name Correction Requests</h2>
-
-          {/* ✅ UPDATED: Status breakdown with all states */}
+          {/* Keep existing status breakdown */}
           <div style={{ display: "flex", gap: "12px", fontSize: "13px", flexWrap: "wrap" }}>
             <div
               style={{
@@ -197,47 +240,74 @@ function NameCorrections() {
           </div>
         </div>
 
-        <div
-          style={{
-            marginBottom: "20px",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            gap: "16px",
-          }}
-        >
-          <input
-            type="text"
-            placeholder="🔍 Search by name, ID, or requested name..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={{
-              padding: "8px 12px",
-              width: "100%",
-              maxWidth: "400px",
-              borderRadius: "4px",
-              border: "1px solid #ddd",
-            }}
-          />
+        {/* Requests Section */}
+        <div className="requests-section">
+          <h3>Name Correction Requests</h3>
 
-          {/* ✅ NEW: Toggle to show/hide completed requests */}
-          <div style={{ display: "flex", alignItems: "center", gap: "8px", whiteSpace: "nowrap" }}>
-            <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "14px" }}>
-              <input type="checkbox" checked={showCompleted} onChange={(e) => setShowCompleted(e.target.checked)} />
-              Show Completed
-            </label>
+          {/* Toolbar */}
+          <div className="table-toolbar">
+            <div className="toolbar-left">
+              {/* Show dropdown */}
+              <div className="toolbar-item">
+                <span>Show:</span>
+                <select
+                  value={rowsPerPage}
+                  onChange={(e) => setRowsPerPage(Number(e.target.value))}
+                  className="show-select"
+                >
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+              </div>
+
+              {/* Auto Refresh button */}
+              <button
+                onClick={handleRefresh}
+                className={`auto-refresh-btn ${isAnyLoading ? "spinning" : ""}`}
+                disabled={isAnyLoading}
+                title="Auto Refresh"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+                  <path d="M21 3v5h-5" />
+                  <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+                  <path d="M3 21v-5h5" />
+                </svg>
+              </button>
+
+              {/* Status filter */}
+              <div className="toolbar-item">
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="status-select"
+                >
+                  <option value="All">All Status</option>
+                  <option value="Pending">Pending</option>
+                  <option value="Document Uploaded">Ready for Review</option>
+                  <option value="Approved">Approved</option>
+                  <option value="Rejected">Rejected</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Search bar - right aligned */}
+            <div className="toolbar-right">
+              <div className="search-wrapper">
+                <input
+                  type="text"
+                  placeholder={`Search ${filteredRequests.length} records...`}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="search-input-toolbar"
+                />
+              </div>
+            </div>
           </div>
 
-          <div style={{ color: "#666", fontSize: "14px", whiteSpace: "nowrap" }}>
-            {filteredRequests.length} request{filteredRequests.length !== 1 ? "s" : ""} found
-          </div>
-        </div>
-
-        {loading ? (
-          <div style={{ textAlign: "center", padding: "40px" }}>
-            <div>Loading name correction requests...</div>
-          </div>
-        ) : (
+          {/* Table */}
           <table>
             <thead>
               <tr>
@@ -253,19 +323,30 @@ function NameCorrections() {
               </tr>
             </thead>
             <tbody>
-              {filteredRequests.length > 0 ? (
-                filteredRequests.map((req, index) => (
+              {isAnyLoading ? (
+                <tr>
+                  <td colSpan="9">
+                    <SkeletonTable rows={5} cols={9} />
+                  </td>
+                </tr>
+              ) : paginatedRequests.length === 0 ? (
+                <tr>
+                  <td colSpan="9" style={{ textAlign: "center", padding: "20px", color: "#666" }}>
+                    {searchTerm || statusFilter !== "All"
+                      ? `No requests found matching your filters`
+                      : "No name correction requests found"}
+                  </td>
+                </tr>
+              ) : (
+                paginatedRequests.map((req, index) => (
                   <tr key={req._id || index}>
-                    <td>{index + 1}</td>
+                    <td>{startIndex + index + 1}</td>
                     <td>{req.studentId}</td>
                     <td>{req.fullName}</td>
                     <td>
                       <strong style={{ color: "#2563eb" }}>{formatRequestedName(req.requestedName)}</strong>
                     </td>
-                    <td>
-                      {/* ✅ Status badge with all states */}
-                      {getStatusBadge(req.status, req.actionNeeded)}
-                    </td>
+                    <td>{getStatusBadge(req.status)}</td>
                     <td>
                       {req.documentUrl ? (
                         <a
@@ -281,7 +362,6 @@ function NameCorrections() {
                       )}
                     </td>
                     <td>
-                      {/* ✅ Show appropriate date based on status */}
                       {req.processedAt
                         ? new Date(req.processedAt).toLocaleDateString()
                         : req.uploadedAt
@@ -296,7 +376,6 @@ function NameCorrections() {
                       </span>
                     </td>
                     <td>
-                      {/* ✅ UPDATED: Show different actions based on status */}
                       {req.status === "Pending" ? (
                         <span style={{ color: "#666", fontSize: "12px", fontStyle: "italic" }}>
                           Waiting for document...
@@ -352,27 +431,39 @@ function NameCorrections() {
                     </td>
                   </tr>
                 ))
-              ) : (
-                <tr>
-                  <td colSpan="9" style={{ textAlign: "center", padding: "40px", color: "#666" }}>
-                    {searchTerm
-                      ? `No requests found matching "${searchTerm}"`
-                      : !showCompleted
-                        ? "No active requests found. Toggle 'Show Completed' to see all requests."
-                        : "No name correction requests found"}
-                  </td>
-                </tr>
               )}
             </tbody>
           </table>
-        )}
 
-        {/* ✅ UPDATED: Modal with rejection reason display */}
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="pagination">
+              <button
+                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+                className="pagination-btn"
+              >
+                ← Previous
+              </button>
+              <span className="pagination-info">
+                Page {currentPage} of {totalPages} ({filteredRequests.length} total)
+              </span>
+              <button
+                onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+                className="pagination-btn"
+              >
+                Next →
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Modal */}
         {showModal && selectedRequest && (
           <div className="modal-overlay">
             <div className="modal">
               <h3>{actionType === "Approved" ? "✅ Approve" : "❌ Reject"} Name Correction</h3>
-
               <div style={{ marginBottom: "20px" }}>
                 <p>
                   <strong>Student:</strong> {selectedRequest.fullName}
@@ -407,8 +498,6 @@ function NameCorrections() {
                     <i style={{ color: "#888" }}>No document</i>
                   )}
                 </p>
-
-                {/* ✅ Show existing rejection reason if any */}
                 {selectedRequest.rejectionReason && (
                   <p>
                     <strong>Previous Rejection Reason:</strong>
@@ -449,7 +538,7 @@ function NameCorrections() {
                   onClick={() => handleDecision(selectedRequest._id, actionType)}
                   disabled={
                     (actionType === "Rejected" && rejectionReason.trim().length < 10) ||
-                    ["Approved", "Rejected"].includes(selectedRequest.status) // ✅ Disable if already processed
+                    ["Approved", "Rejected"].includes(selectedRequest.status)
                   }
                 >
                   Confirm {actionType}
@@ -469,7 +558,6 @@ function NameCorrections() {
           </div>
         )}
       </div>
-
       <ToastContainer position="top-right" autoClose={3000} />
     </div>
   )

@@ -1,48 +1,39 @@
-import React, { useState } from "react";
+import React from "react";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useLoginMutation } from "../../redux/api/authApi";
+import { useDispatch } from "react-redux";
+import { setCredentials } from "../../redux/slices/authSlice";
 import { useNavigate } from "react-router-dom";
-import { useUser } from "../../context/UserContext"; // ✅ context
-import "./Login.css";
 import bgImage from "../../assets/logo.jpg";
 import logo from "../../assets/jam.png";
+import "./Login.css";
+
+// ✅ Zod schema
+const loginSchema = z.object({
+  username: z.string().min(3, "Username is required"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+});
 
 const Login = () => {
-  const [form, setForm] = useState({ username: "", password: "" });
-  const [error, setError] = useState("");
+  const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { setUser } = useUser(); // ✅ from context
+  const [login, { isLoading }] = useLoginMutation();
 
-  const handleChange = (e) => {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
-  };
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm({ resolver: zodResolver(loginSchema) });
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError("");
-
+  const onSubmit = async (formData) => {
     try {
-      const res = await fetch("http://localhost:5000/api/users/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
+      const { token, user } = await login(formData).unwrap();
+      dispatch(setCredentials({ token, user }));
+      localStorage.setItem("userMongoId", user.id); // ✅ Store for dashboard approvals
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Login failed");
 
-      const { token, user } = data;
-
-      // ✅ Save to localStorage
-      localStorage.setItem("token", token);
-      localStorage.setItem("role", user.role);
-      localStorage.setItem("userId", user.userId);
-      localStorage.setItem("userMongoId", user.id);
-      localStorage.setItem("username", user.username);
-      localStorage.setItem("user", JSON.stringify(user)); // ✅ full user for context
-
-      // ✅ Update context globally
-      setUser(user);
-
-      // ✅ Redirect by role
       const routeMap = {
         admin: "dashboard",
         finance: "finance/dashboard",
@@ -50,17 +41,16 @@ const Login = () => {
         lab: "lab/dashboard",
         exam_office: "dashboard",
         faculty: "faculty/dashboard",
-        student: "student",
       };
 
       const dashboard = routeMap[user.role];
       if (dashboard) {
         navigate(`/${dashboard}`);
       } else {
-        setError("Unknown user role. Cannot redirect.");
+        alert("Unknown user role. Cannot redirect.");
       }
     } catch (err) {
-      setError(err.message || "Login failed");
+      alert(err?.data?.message || "Login failed");
     }
   };
 
@@ -83,29 +73,27 @@ const Login = () => {
 
         {/* RIGHT SIDE */}
         <div className="right-side">
-          <form onSubmit={handleSubmit} className="login-form">
+          <form onSubmit={handleSubmit(onSubmit)} className="login-form">
             <img src={logo} alt="JUST Logo" className="login-logo" />
             <h2>MyJUST Login</h2>
-            {error && <p className="error">{error}</p>}
 
             <input
               type="text"
-              name="username"
               placeholder="Username or Student ID"
-              value={form.username}
-              onChange={handleChange}
-              required
+              {...register("username")}
             />
+            {errors.username && <p className="error">{errors.username.message}</p>}
+
             <input
               type="password"
-              name="password"
               placeholder="Password"
-              value={form.password}
-              onChange={handleChange}
-              required
+              {...register("password")}
             />
+            {errors.password && <p className="error">{errors.password.message}</p>}
 
-            <button type="submit">SIGN IN</button>
+            <button type="submit" disabled={isLoading}>
+              {isLoading ? "Logging in..." : "SIGN IN"}
+            </button>
 
             <p className="copyright">
               © 2025 Jamhuriya Thesis System. Developed by{" "}
@@ -119,5 +107,3 @@ const Login = () => {
 };
 
 export default Login;
-
-

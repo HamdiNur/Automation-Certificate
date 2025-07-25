@@ -1,31 +1,32 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose"
 
 const examinationSchema = new mongoose.Schema({
-  studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Student' },
+  studentId: { type: mongoose.Schema.Types.ObjectId, ref: "Student" },
   hasPassedAllCourses: Boolean,
   canGraduate: Boolean,
   confirmationPdfUrl: String,
-
   nameConfirmed: { type: Boolean, default: false },
   nameCorrectionDoc: String,
-
-
   requiredDocs: {
     passportUploaded: { type: Boolean, default: false },
   },
-forwardedToAdmission: { type: Boolean, default: false },
-forwardedReason: { type: String }, // optional
-
+  forwardedToAdmission: { type: Boolean, default: false },
+  forwardedReason: { type: String }, // optional
   clearanceStatus: {
     type: String,
-    enum: ['Pending', 'Approved', 'Rejected'],
-    default: 'Pending'
+    enum: ["Pending", "Approved", "Rejected"],
+    default: "Pending",
   },
-
   remarks: String,
-  finalDecisionBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  finalDecisionBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   clearedAt: Date,
-  updatedAt: { type: Date, default: Date.now }
-});
+  // ✅ NEW: Track approval type
+  approvalType: {
+    type: String,
+    enum: ["manual", "automatic"],
+    default: "manual",
+  },
+  updatedAt: { type: Date, default: Date.now },
+})
 
-export default mongoose.model('Examination', examinationSchema);
+export default mongoose.model("Examination", examinationSchema)

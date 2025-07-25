@@ -40,18 +40,15 @@ export const getPendingLibrary = async (req, res) => {
 
 
 // 🔹 Approve library clearance
-
 export const approveLibrary = async (req, res) => {
-  const { groupId, libraryStaffId } = req.body;
+  const { groupId } = req.body;
+  const staffId = req.user.id;
 
   try {
     // 1. Validate staff user
-    const staffUser = await User.findOne({ 
-      userId: libraryStaffId, 
-      role: { $in: ['staff', 'library'] } 
-    });
-    if (!staffUser) {
-      return res.status(404).json({ message: 'Library staff not found' });
+    const staffUser = await User.findById(staffId);
+    if (!staffUser || !['staff', 'library'].includes(staffUser.role)) {
+      return res.status(403).json({ message: 'Unauthorized: not a library staff member.' });
     }
 
     // 2. Find and approve Library record
@@ -66,7 +63,7 @@ export const approveLibrary = async (req, res) => {
     libraryRecord.libraryStaffId = staffUser._id;
     libraryRecord.clearedAt = new Date();
 
-        // ✅ Add this block BEFORE saving
+    // ✅ Add to history
     libraryRecord.history = libraryRecord.history || [];
     libraryRecord.history.push({
       status: 'Approved',
@@ -74,6 +71,7 @@ export const approveLibrary = async (req, res) => {
       actor: staffUser._id,
       date: new Date()
     });
+
     await libraryRecord.save();
 
     // 3. Update Group clearance progress
@@ -103,7 +101,7 @@ export const approveLibrary = async (req, res) => {
         clearance.library.status = 'Approved';
         clearance.library.clearedAt = new Date();
       }
-      
+
       await clearance.save();
     }
 
@@ -126,29 +124,25 @@ export const approveLibrary = async (req, res) => {
       labClearance.returnedItems = '';
       labClearance.updatedAt = new Date();
     }
-    
 
     await labClearance.save();
-    
-// ✅ Emit socket to Lab if Faculty already approved
-const firstStudent = await Student.findOne({ groupId }).select('_id');
-const clearance = await Clearance.findOne({ studentId: firstStudent._id });
 
-if (clearance?.faculty?.status === 'Approved') {
-  if (global._io) {
-    global._io.emit('lab:new-eligible', {
-      groupId,
-      message: "✅ Group is now eligible for Lab clearance",
-      timestamp: new Date()
-    });
-    console.log("📢 Emitted lab:new-eligible socket for group:", groupId);
-  }
-}
+    // ✅ Emit socket if Faculty already approved
+    const firstStudent = students[0];
+    const clearance = await Clearance.findOne({ studentId: firstStudent._id });
 
-// ✅ Final response
-res.status(200).json({ message: 'Library approved and Lab clearance initialized.' });
+    if (clearance?.faculty?.status === 'Approved') {
+      if (global._io) {
+        global._io.emit('lab:new-eligible', {
+          groupId,
+          message: "✅ Group is now eligible for Lab clearance",
+          timestamp: new Date()
+        });
+        console.log("📢 Emitted lab:new-eligible socket for group:", groupId);
+      }
+    }
 
-
+    res.status(200).json({ message: 'Library approved and Lab clearance initialized.' });
   } catch (err) {
     console.error("❌ Library approval error:", err);
     res.status(500).json({ message: 'Approval failed.', error: err.message });
@@ -158,36 +152,37 @@ res.status(200).json({ message: 'Library approved and Lab clearance initialized.
 /// 🔹 Reject library clearance
 export const rejectLibrary = async (req, res) => {
   const { groupId, remarks } = req.body;
-const { libraryStaffId } = req.body;
-
-const staffUser = await User.findOne({ userId: libraryStaffId });
-if (!staffUser) return res.status(404).json({ message: "Library staff not found." });
-
-const actorId = staffUser._id;
+  const staffId = req.user.id;
 
   try {
-    // 1. Find the Library record
+    // 1. Validate staff user
+    const staffUser = await User.findById(staffId);
+    if (!staffUser || !['staff', 'library'].includes(staffUser.role)) {
+      return res.status(403).json({ message: "Unauthorized: not a library staff member." });
+    }
+
+    const actorId = staffUser._id;
+
+    // 2. Find the Library record
     const library = await Library.findOne({ groupId });
     if (!library) return res.status(404).json({ message: 'Library record not found.' });
 
-    // 2. Update the Library record
+    // 3. Update the Library record
     library.status = 'Rejected';
-    library.remarks = remarks || 'No remarks';
+    library.remarks = remarks || 'No remarks provided';
 
-        // ✅ Add rejection to history
     library.history = library.history || [];
     library.history.push({
       status: 'Rejected',
       reason: remarks || 'No remarks provided',
-      actor: actorId || null,
+      actor: actorId,
       date: new Date()
     });
+
     await library.save();
 
-    // 3. Get all students in the group
+    // 4. Update student clearance records
     const students = await Student.find({ groupId }).select('_id');
-
-    // 4. Update their Clearance records
     for (const s of students) {
       const clearance = await Clearance.findOne({ studentId: s._id });
 

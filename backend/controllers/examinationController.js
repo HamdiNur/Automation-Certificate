@@ -3,8 +3,10 @@ import Clearance from "../models/clearance.js"
 import CourseRecord from "../models/course.js"
 import Student from "../models/Student.js"
 import Appointment from "../models/appointment.js"
+import User from "../models/User.js"
+import { notifyStudent } from "../services/notificationService.js"
 
-// 🔹 Get all pending examination records
+// 🔹 FIXED: Get all students who completed Phase 1 (with or without exam records)
 export const getPendingExamination = async (req, res) => {
   try {
     // ✅ Find students who completed Phase 1 and paid graduation fee
@@ -18,35 +20,76 @@ export const getPendingExamination = async (req, res) => {
     // Get only student IDs
     const eligibleIds = students.map((clr) => clr.studentId?._id).filter(Boolean)
 
-    // ✅ Find examination records for those students with "Pending" status
-    const pending = await Examination.find({
+    // ✅ Find ALL examination records for those students
+    const examRecords = await Examination.find({
       studentId: { $in: eligibleIds },
-      clearanceStatus: "Pending",
     }).populate("studentId")
 
-    res.status(200).json(pending)
+    // ✅ Create a map of existing exam records
+    const examMap = new Map()
+    examRecords.forEach((exam) => {
+      if (exam.studentId) {
+        examMap.set(exam.studentId._id.toString(), exam)
+      }
+    })
+
+    // ✅ Build result array - EXCLUDE students with approved examinations
+    const results = []
+    for (const clearance of students) {
+      if (!clearance.studentId) continue
+      const studentId = clearance.studentId._id
+      const existingExam = examMap.get(studentId.toString())
+
+      if (existingExam) {
+        // ✅ ONLY include if examination is NOT approved
+        if (existingExam.clearanceStatus !== "Approved") {
+          results.push(existingExam)
+        }
+        // ✅ If examination is approved, DON'T include in pending list
+      } else {
+        // ✅ Student has no exam record - create virtual record for display
+        const failedCourses = await CourseRecord.find({
+          studentId: studentId,
+          passed: false,
+        })
+        const hasPassedAllCourses = failedCourses.length === 0
+
+        results.push({
+          _id: null, // Virtual record
+          studentId: clearance.studentId,
+          hasPassedAllCourses,
+          canGraduate: hasPassedAllCourses,
+          clearanceStatus: "Pending", // Default status
+          nameConfirmed: false,
+          createdAt: new Date(),
+          needsExamRecord: true, // Flag to indicate missing record
+        })
+      }
+    }
+
+    res.status(200).json(results)
   } catch (err) {
+    console.error("❌ Error fetching pending examinations:", err)
     res.status(500).json({ message: "Failed to fetch pending examinations", error: err.message })
   }
 }
-
-// ✅ UPDATED: Complete Name Correction Approval (by examination officer)
+// ✅ COMPLETE: Name Correction Approval
 export const approveNameCorrection = async (req, res) => {
   const { studentId } = req.body
-
   try {
     const student = await Student.findById(studentId)
     if (!student) return res.status(404).json({ message: "Student not found" })
 
-    // ✅ Validate that student has uploaded document
-    if (!student.correctionUploadUrl || student.nameCorrectionStatus !== "Document Uploaded") {
+    if (
+      !student.correctionUploadUrl ||
+      !["Ready For Review", "Document Uploaded"].includes(student.nameCorrectionStatus)
+    ) {
       return res.status(400).json({
         message: "No document uploaded or invalid status for approval",
         currentStatus: student.nameCorrectionStatus,
       })
     }
 
-    // ✅ Validate requested name exists
     if (!student.requestedName || student.requestedName.trim() === "") {
       return res.status(400).json({
         message: "No requested name found. Student must specify the new name.",
@@ -55,16 +98,17 @@ export const approveNameCorrection = async (req, res) => {
 
     console.log(`✅ Officer approving name correction for student ${student.studentId}`)
     console.log(`📝 Changing name from: "${student.fullName}" to: "${student.requestedName}"`)
+    const originalName = student.fullName
 
-    // ✅ 1. Update student record - APPROVE NAME CORRECTION
+    // ✅ 1. Update student record
     const updatedStudent = await Student.findByIdAndUpdate(
       studentId,
       {
-        fullName: student.requestedName, // ✅ Update actual name
+        fullName: student.requestedName,
         nameVerified: true,
-        nameCorrectionStatus: "Approved", // ✅ Set status to approved
-        requestedName: "", // Clear requested name (no longer needed)
-        rejectionReason: "", // Clear any previous rejection reason
+        nameCorrectionStatus: "Approved",
+        requestedName: "",
+        rejectionReason: "",
       },
       { new: true },
     )
@@ -72,18 +116,27 @@ export const approveNameCorrection = async (req, res) => {
     // ✅ 2. Update examination record
     await Examination.findOneAndUpdate({ studentId }, { nameConfirmed: true })
 
-    // ✅ 3. AUTO-APPROVE EXAMINATION (since name correction is done)
+    // ✅ 3. AUTO-APPROVE EXAMINATION
     const exam = await Examination.findOne({ studentId })
     if (exam) {
       const now = new Date()
 
-      // Update examination record
+      // ✅ Find exam_office user (Saeed)
+      const examinationOfficer = await User.findOne({ role: "exam_office" })
+      if (!examinationOfficer) {
+        return res.status(500).json({
+          message: "No examination officer found. Please contact administration.",
+        })
+      }
+
+      // ✅ Auto-approve examination
       exam.clearanceStatus = "Approved"
       exam.clearedAt = now
-      exam.finalDecisionBy = "Examination Officer"
+      exam.finalDecisionBy = examinationOfficer._id
+      exam.approvalType = "automatic"
       await exam.save()
 
-      // Update clearance record
+      // ✅ Update clearance record
       await Clearance.updateOne(
         { studentId },
         {
@@ -95,48 +148,81 @@ export const approveNameCorrection = async (req, res) => {
         },
       )
 
-      // ✅ 4. CREATE APPOINTMENT AUTOMATICALLY
+      // ✅ 4. CREATE APPOINTMENT - FIXED: Use ObjectId for createdBy
       const existingAppointment = await Appointment.findOne({ studentId })
+      let appointmentDate = new Date()
+      let appointmentCreated = false
+
       if (!existingAppointment) {
-        const appointmentDate = new Date()
-        appointmentDate.setDate(appointmentDate.getDate() + 3) // 3 days from now
+        appointmentDate.setDate(appointmentDate.getDate() + 3)
 
-        await Appointment.create({
-          studentId,
-          appointmentDate,
-          createdBy: "Examination Officer",
-          createdAt: new Date(),
-        })
-
-        console.log(`📅 Appointment created for student ${student.studentId} on ${appointmentDate}`)
+        try {
+          await Appointment.create({
+            studentId,
+            appointmentDate,
+            createdBy: examinationOfficer._id, // ✅ FIXED: Use ObjectId instead of string
+            createdAt: new Date(),
+          })
+          appointmentCreated = true
+          console.log(`📅 Appointment created for student ${student.studentId} on ${appointmentDate.toDateString()}`)
+        } catch (appointmentError) {
+          console.error("❌ Failed to create appointment:", appointmentError)
+          return res.status(500).json({
+            message: "Name correction approved but failed to create appointment. Please contact administration.",
+            error: appointmentError.message,
+          })
+        }
+      } else {
+        appointmentDate = existingAppointment.appointmentDate
+        console.log(
+          `📅 Using existing appointment for student ${student.studentId} on ${appointmentDate.toDateString()}`,
+        )
       }
 
-      // ✅ 5. Emit socket events for real-time updates
+      // ✅ 5. SEND NOTIFICATION - Enhanced with appointment details
+      try {
+        await notifyStudent({
+          student: updatedStudent,
+          title: "🎉 Name Correction Approved!",
+          message: `Great news! Your name correction has been approved. Your official name is now "${updatedStudent.fullName}". Your examination appointment is scheduled for ${appointmentDate.toDateString()}.`,
+          type:"examination-approved",
+        })
+        console.log(`✅ Notification sent to student ${updatedStudent.studentId}`)
+      } catch (notificationError) {
+        console.error("❌ Failed to send notification:", notificationError)
+      }
+
+      // ✅ 6. Socket events
       if (global._io) {
         global._io.emit("nameCorrectionApproved", {
           studentId: student.studentId,
-          fullName: updatedStudent.fullName, // New name
-          oldName: student.fullName, // Original name
+          fullName: updatedStudent.fullName,
+          oldName: originalName,
           newName: updatedStudent.fullName,
           examinationApproved: true,
-          appointmentScheduled: true,
+          appointmentScheduled: appointmentCreated || !!existingAppointment,
+          appointmentDate: appointmentDate,
+          approvalType: "automatic",
+          approvedBy: examinationOfficer.fullName,
         })
-
         global._io.emit("examinationApproved", {
           studentId: student.studentId,
           fullName: updatedStudent.fullName,
-          approvedBy: "Examination Officer",
-          reason: "Name correction approved",
+          approvedBy: examinationOfficer.fullName,
+          reason: "Name correction approved - Auto-approved examination",
+          approvalType: "automatic",
         })
       }
 
       return res.status(200).json({
-        message: "✅ Name correction approved! Student name updated and examination cleared.",
-        oldName: student.fullName,
+        message: "✅ Name correction approved! Student name updated and examination cleared automatically.",
+        oldName: originalName,
         newName: updatedStudent.fullName,
         examinationApproved: true,
-        appointmentScheduled: true,
-        appointmentDate: new Date(),
+        appointmentScheduled: appointmentCreated || !!existingAppointment,
+        appointmentDate: appointmentDate,
+        approvalType: "automatic",
+        approvedBy: examinationOfficer.fullName,
       })
     } else {
       return res.status(404).json({
@@ -153,29 +239,25 @@ export const approveNameCorrection = async (req, res) => {
 export const rejectNameCorrection = async (req, res) => {
   const { studentId } = req.params
   const { rejectionReason } = req.body
-
   try {
     const student = await Student.findById(studentId)
     if (!student) {
       return res.status(404).json({ message: "Student not found" })
     }
 
-    // ✅ Validate that student has a name correction request
-    if (!student.nameCorrectionRequested || student.nameCorrectionStatus === "Declined") {
+    if (!student.nameCorrectionRequested || student.nameCorrectionStatus === "Rejected") {
       return res.status(400).json({
         message: "No active name correction request found",
         currentStatus: student.nameCorrectionStatus,
       })
     }
 
-    // ✅ Validate rejection reason is provided
     if (!rejectionReason || rejectionReason.trim() === "") {
       return res.status(400).json({
-        message: "Rejection reason is required. Please provide a clear reason for rejection.",
+        message: "Rejection reason is required. Please provide a clear reason.",
       })
     }
 
-    // ✅ Validate minimum reason length
     if (rejectionReason.trim().length < 10) {
       return res.status(400).json({
         message: "Rejection reason must be at least 10 characters long.",
@@ -183,18 +265,15 @@ export const rejectNameCorrection = async (req, res) => {
     }
 
     console.log(`❌ Officer rejecting name correction for student ${student.studentId}`)
-    console.log(`📝 Rejection reason: ${rejectionReason}`)
+    console.log(`📝 Rejection reason: ${rejectionReason.trim()}`)
 
-    // ✅ Update student record - REJECT NAME CORRECTION
     await Student.findByIdAndUpdate(studentId, {
-      nameCorrectionStatus: "Rejected", // ✅ Set status to rejected
+      nameCorrectionStatus: "Rejected",
       nameVerified: false,
       rejectionReason: rejectionReason.trim(),
-      // ✅ Keep uploaded document and requested name for potential re-submission
-      // Don't clear: correctionUploadUrl, requestedName
     })
 
-    // ✅ Emit socket event for real-time updates (for future notifications)
+    // Emit real-time socket update
     if (global._io) {
       global._io.emit("nameCorrectionRejected", {
         studentId: student.studentId,
@@ -204,8 +283,13 @@ export const rejectNameCorrection = async (req, res) => {
       })
     }
 
-    // ✅ TODO: Send FCM notification here (when you implement notifications)
-    // await sendNameCorrectionRejectionNotification(student.fcmToken, rejectionReason);
+    // ✅ Notify student via FCM + Notification DB (name-correction-rejected)
+    await notifyStudent({
+      student,
+      title: "❌ Name Correction Rejected",
+      message: `Your name correction request was rejected. Reason: ${rejectionReason.trim()}`,
+      type: "name-correction-rejected", // Use updated type
+    })
 
     return res.status(200).json({
       message: "❌ Name correction rejected successfully.",
@@ -285,14 +369,11 @@ export const getNameCorrectionRequests = async (req, res) => {
         Approved: 3,
         Rejected: 3,
       }
-
       const aPriority = priorityOrder[a.status] || 4
       const bPriority = priorityOrder[b.status] || 4
-
       if (aPriority !== bPriority) {
         return aPriority - bPriority
       }
-
       // Within same priority, sort by waiting time (longest first)
       return b.waitingTime - a.waitingTime
     })
@@ -317,11 +398,9 @@ export const getNameCorrectionRequests = async (req, res) => {
 // ✅ UPDATED: Manual Examination Approval (for cases without name correction)
 export const approveExamination = async (req, res) => {
   const { studentId, approvedBy } = req.body
-
   try {
     const exam = await Examination.findOne({ studentId })
     const student = await Student.findById(studentId)
-
     if (!exam || !student) {
       return res.status(404).json({ message: "Examination or student record not found." })
     }
@@ -329,7 +408,6 @@ export const approveExamination = async (req, res) => {
     // Check if student passed all courses
     const courseRecords = await CourseRecord.find({ studentId })
     const hasPassedAll = courseRecords.every((c) => c.passed)
-
     if (!hasPassedAll || !exam.canGraduate) {
       return res.status(400).json({ message: "Student has not met graduation criteria." })
     }
@@ -353,11 +431,12 @@ export const approveExamination = async (req, res) => {
       })
     }
 
-    // ✅ Update exam clearance
+    // ✅ Update exam clearance with manual approval
     const now = new Date()
     exam.clearanceStatus = "Approved"
     exam.clearedAt = now
-    exam.finalDecisionBy = approvedBy || "Examination Officer"
+    exam.finalDecisionBy = approvedBy || null
+    exam.approvalType = "manual" // ✅ NEW: Mark as manual approval
     await exam.save()
 
     // ✅ Update clearance record
@@ -378,15 +457,27 @@ export const approveExamination = async (req, res) => {
       const appointmentDate = new Date()
       appointmentDate.setDate(appointmentDate.getDate() + 3)
 
+      // Get approver info for appointment
+      const approver = await User.findById(approvedBy)
+
       await Appointment.create({
         studentId,
         appointmentDate,
-        createdBy: approvedBy || "Examination Officer",
+        createdBy: approver ? `Manual Approval (${approver.fullName})` : "Manual Approval",
+      })
+
+      // Notify the student
+      await notifyStudent({
+        student,
+        title: "🎓 Appointment Scheduled",
+        message: `Your certificate pickup is scheduled for ${appointmentDate.toDateString()}. Please be on time.`,
+        type: "appointment",
       })
     }
 
     res.status(200).json({
-      message: "✅ Examination approved successfully and appointment scheduled.",
+      message: "✅ Examination approved manually and appointment scheduled.",
+      approvalType: "manual",
     })
   } catch (err) {
     res.status(500).json({
@@ -396,10 +487,11 @@ export const approveExamination = async (req, res) => {
   }
 }
 
+
+
 // ✅ Keep all your existing functions
 export const rejectExamination = async (req, res) => {
   const { studentId, remarks } = req.body
-
   try {
     const exam = await Examination.findOne({ studentId })
     if (!exam) return res.status(404).json({ message: "Examination record not found." })
@@ -419,11 +511,9 @@ export const rejectExamination = async (req, res) => {
 
 export const confirmStudentName = async (req, res) => {
   const { studentId, newName } = req.body
-
   try {
     await Student.findByIdAndUpdate(studentId, { fullName: newName })
     await Examination.findOneAndUpdate({ studentId }, { nameConfirmed: true })
-
     res.status(200).json({ message: "Name updated and confirmed." })
   } catch (err) {
     res.status(500).json({ message: "Name confirmation failed.", error: err.message })
@@ -432,14 +522,12 @@ export const confirmStudentName = async (req, res) => {
 
 export const uploadCertificate = async (req, res) => {
   const { studentId, confirmationPdfUrl } = req.body
-
   try {
     const exam = await Examination.findOne({ studentId })
     if (!exam) return res.status(404).json({ message: "Examination record not found." })
 
     exam.confirmationPdfUrl = confirmationPdfUrl
     await exam.save()
-
     res.status(200).json({ message: "Certificate uploaded." })
   } catch (err) {
     res.status(500).json({ message: "Failed to upload certificate.", error: err.message })
@@ -448,7 +536,6 @@ export const uploadCertificate = async (req, res) => {
 
 export const getFailedCourses = async (req, res) => {
   const { studentId } = req.params
-
   try {
     const failed = await CourseRecord.find({ studentId, passed: false })
     res.status(200).json(failed)
@@ -459,7 +546,6 @@ export const getFailedCourses = async (req, res) => {
 
 export const requestNameCorrection = async (req, res) => {
   const { studentId, requestedName } = req.body
-
   try {
     const exam = await Examination.findOne({ studentId })
     if (!exam) return res.status(404).json({ message: "Examination record not found" })
@@ -480,7 +566,6 @@ export const requestNameCorrection = async (req, res) => {
     exam.forwardedReason = isMajorCorrection
       ? "Major name change requested. Forwarded to Admission Office for verification."
       : null
-
     await exam.save()
 
     res.status(200).json({
@@ -497,7 +582,6 @@ export const requestNameCorrection = async (req, res) => {
 export const uploadNameCorrectionDoc = async (req, res) => {
   const { studentId, requestedName } = req.body
   const file = req.file
-
   if (!file) return res.status(400).json({ message: "No file uploaded" })
 
   try {
@@ -536,8 +620,10 @@ export const getFullyClearedStudents = async (req, res) => {
   }
 }
 
+// 🔧 FIXED: Stats calculation to match the table display
 export const getExaminationStats = async (req, res) => {
   try {
+    // ✅ STEP 1: Find all students who completed Phase 1 clearances
     const eligibleStudents = await Clearance.find({
       "faculty.status": "Approved",
       "library.status": "Approved",
@@ -547,34 +633,46 @@ export const getExaminationStats = async (req, res) => {
 
     const eligibleIds = eligibleStudents.map((c) => c.studentId).filter(Boolean)
 
+    // ✅ STEP 2: Find existing examination records for those students
     const existingExamRecords = await Examination.find({
       studentId: { $in: eligibleIds },
     })
 
+    // ✅ STEP 3: Calculate pending count (same logic as getPendingExamination)
+    let pendingCount = 0
+
+    // Count existing exam records that are not "Approved"
+    const nonApprovedExams = existingExamRecords.filter((exam) => exam.clearanceStatus !== "Approved")
+    pendingCount += nonApprovedExams.length
+
+    // Count students without exam records (they need virtual records)
     const existingIds = existingExamRecords.map((e) => e.studentId.toString())
-    const needingExamRecords = eligibleIds.filter((id) => !existingIds.includes(id.toString())).length
+    const studentsWithoutExamRecords = eligibleIds.filter((id) => !existingIds.includes(id.toString()))
+    pendingCount += studentsWithoutExamRecords.length
 
-    const truePending = await Examination.countDocuments({
-      clearanceStatus: "Pending",
-    })
-
-    // ✅ Updated: Count ALL name correction states (for dashboard stats)
-    const nameCorrections = await Student.countDocuments({
-      nameCorrectionRequested: true,
-      nameCorrectionStatus: { $in: ["Pending", "Document Uploaded"] }, // Only active ones for dashboard
-    })
-
+    // ✅ STEP 4: Count approved examinations
     const approved = await Examination.countDocuments({
       clearanceStatus: "Approved",
     })
 
+    // ✅ STEP 5: Count active name corrections (for dashboard stats)
+  const nameCorrections = await Student.countDocuments({
+  nameCorrectionRequested: true,
+  nameCorrectionStatus: {
+    $in: ["Pending", "Document Uploaded", "Approved", "Rejected"],
+  },
+})
+    // ✅ STEP 6: Count students needing exam records (for reference)
+    const needingExamRecords = studentsWithoutExamRecords.length
+
     res.status(200).json({
-      pending: truePending,
+      pending: pendingCount, // ✅ FIXED: Now matches table count
       needingExamRecords,
       nameCorrections, // Active name corrections (for dashboard)
       approved,
     })
   } catch (err) {
+    console.error("❌ Error fetching examination stats:", err)
     res.status(500).json({ message: "Failed to fetch examination stats", error: err.message })
   }
 }
@@ -618,7 +716,6 @@ export const getPassFailSummary = async (req, res) => {
 
 export const revalidateGraduationEligibility = async (req, res) => {
   const { studentId } = req.body
-
   try {
     const exam = await Examination.findOne({ studentId })
     if (!exam) return res.status(404).json({ message: "Examination record not found." })
@@ -676,49 +773,57 @@ export const getEligibleStudentsSummary = async (req, res) => {
 
 export const checkCertificateEligibility = async (req, res) => {
   const { studentId } = req.params
-
+  console.log("🔥 checkCertificateEligibility CALLED for", studentId)
   try {
-    const exam = await Examination.findOne({ studentId })
-    const clearance = await Clearance.findOne({ studentId })
-
-    if (!exam || !clearance) {
-      return res.status(404).json({ message: "Examination or Clearance record not found" })
+    // STEP 1: Find student document by their string studentId (e.g., C1210159)
+    const studentDoc = await Student.findOne({ studentId })
+    if (!studentDoc) {
+      return res.status(404).json({ message: "Student not found" })
     }
 
-    const clearedPhase1 =
+    const objectId = studentDoc._id
+
+    // STEP 2: Find clearance record for actual status
+    const clearance = await Clearance.findOne({ studentId: objectId })
+    if (!clearance) {
+      return res.status(404).json({ message: "Clearance record not found" })
+    }
+
+    const isCleared =
       clearance.faculty.status === "Approved" &&
+      clearance.library.status === "Approved" &&
       clearance.lab.status === "Approved" &&
-      clearance.library.status === "Approved"
+      clearance.finance.status === "Approved"
 
-    const clearedPhase2 = clearance.finance.status === "Approved"
+    // STEP 3: Get failed courses (if any)
+    const failedCourses = await CourseRecord.find({
+      studentId: objectId,
+      passed: false,
+    }).select("courseName")
 
-    if (!clearedPhase1 || !clearedPhase2) {
-      return res.status(200).json({
-        canProceed: false,
-        message: "Please complete all clearance stages.",
-      })
+    const failedCourseNames = failedCourses.map((c) => c.courseName)
+    console.log("📚 Failed courses:", failedCourseNames)
+
+    // STEP 4: Determine eligibility
+    let message = ""
+    if (!isCleared) {
+      message = "❌ You are not eligible for certificate collection. Clearance is incomplete."
+    } else if (failedCourseNames.length > 0) {
+      message = `❌ You are not eligible for certificate collection. You failed ${failedCourseNames.join(", ")}.`
+    } else {
+      message = "✅ You are cleared for certificate collection."
     }
 
-    if (!exam.hasPassedAllCourses) {
-      return res.status(200).json({
-        canProceed: false,
-        failedCourses: true,
-        showNameCorrectionOption: false,
-        message: "You failed some courses. Re-exam is required.",
-      })
-    }
-
-    return res.status(200).json({
-      canProceed: true,
-      failedCourses: false,
-      showNameCorrectionOption: true,
-      message: "You are eligible for certificate issuance. Do you need a name correction?",
+    // STEP 5: Return response
+    return res.json({
+      canProceed: isCleared && failedCourseNames.length === 0,
+      failedCourses: failedCourseNames,
+      showNameCorrectionOption: isCleared && failedCourseNames.length === 0 && !studentDoc?.nameCorrectionRequested,
+      message,
     })
   } catch (error) {
-    return res.status(500).json({
-      message: "Internal error",
-      error: error.message,
-    })
+    console.error("❌ checkCertificateEligibility FAILED:", error)
+    return res.status(500).json({ message: "Internal server error" })
   }
 }
 
@@ -741,7 +846,6 @@ export const createMissingExaminationRecords = async (req, res) => {
     const needingRecords = eligibleIds.filter((id) => !existingIds.includes(id.toString()))
 
     let created = 0
-
     for (const studentId of needingRecords) {
       const failed = await CourseRecord.exists({ studentId, passed: false })
       const hasPassedAllCourses = !failed
@@ -753,7 +857,6 @@ export const createMissingExaminationRecords = async (req, res) => {
         clearanceStatus: "Pending",
         createdAt: new Date(),
       })
-
       created++
     }
 

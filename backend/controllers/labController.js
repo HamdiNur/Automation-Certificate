@@ -1,113 +1,95 @@
-// ✅ backend/controllers/labController.js — Full Lab Logic
-import Lab from '../models/lab.js';
-import Group from '../models/group.js';
-import Student from '../models/Student.js';
-import Clearance from '../models/clearance.js';
-import Finance from '../models/finance.js';  // ✅ ADD THIS LINE
-// import { generateFinanceForStudent } from '../utils/financeGenerator.js';
+import Lab from "../models/lab.js"
+import Group from "../models/group.js"
+import Student from "../models/Student.js"
+import Clearance from "../models/clearance.js"
 import { checkAndCreateExaminationRecord } from "../utils/examinationHelper.js"
 
-// 🔹 Get all lab clearance records
 export const getAllLabClearances = async (req, res) => {
   try {
     const records = await Lab.find()
-      .populate('groupId', 'groupNumber program faculty projectTitle')
-      .populate('members', 'fullName studentId email');
-    res.status(200).json(records);
+      .populate("groupId", "groupNumber program faculty projectTitle")
+      .populate("members", "fullName studentId email")
+    res.status(200).json(records)
   } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch lab records', message: err.message });
+    res.status(500).json({ error: "Failed to fetch lab records", message: err.message })
   }
-};
+}
 
-// 🔹 Get lab record by group ID
 export const getLabByGroupId = async (req, res) => {
   try {
     const record = await Lab.findOne({ groupId: req.params.groupId })
-      .populate('groupId', 'groupNumber program')
-      .populate('members', 'fullName studentId email');
-    if (!record) return res.status(404).json({ message: 'Lab clearance not found for this group.' });
-    res.status(200).json(record);
+      .populate("groupId", "groupNumber program")
+      .populate("members", "fullName studentId email")
+    if (!record) return res.status(404).json({ message: "Lab clearance not found for this group." })
+    res.status(200).json(record)
   } catch (err) {
-    res.status(500).json({ error: 'Error fetching lab record by group ID', message: err.message });
+    res.status(500).json({ error: "Error fetching lab record by group ID", message: err.message })
   }
-};
+}
 
-// 🔹 Get lab clearance for a specific student
 export const getLabByStudentId = async (req, res) => {
   try {
-    const studentId = req.params.studentId;
+    const studentId = req.params.studentId
     const record = await Lab.findOne({ members: studentId })
-      .populate('groupId', 'groupNumber program faculty')
-      .populate('members', 'fullName studentId email')
-      .sort({ createdAt: 1 }); // ⬅️
+      .populate("groupId", "groupNumber program faculty")
+      .populate("members", "fullName studentId email")
+      .sort({ createdAt: 1 })
 
-    if (!record) return res.status(404).json({ message: 'Lab clearance not found for this student.' });
-    res.status(200).json(record);
+    if (!record) return res.status(404).json({ message: "Lab clearance not found for this student." })
+    res.status(200).json(record)
   } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch lab record', message: err.message });
+    res.status(500).json({ error: "Failed to fetch lab record", message: err.message })
   }
-};
-
+}
 
 export const getPendingLab = async (req, res) => {
   try {
-    const query = req.query.search?.trim();
+    const query = req.query.search?.trim()
 
-    // 1. Get lab records with status 'Pending' or 'Incomplete'
-    const labs = await Lab.find({ status: { $in: ['Pending', 'Incomplete'] } })
-      .populate('groupId', 'groupNumber projectTitle')
-      .populate('members', 'fullName studentId');
+    const labs = await Lab.find({ status: { $in: ["Pending", "Incomplete"] } })
+      .populate("groupId", "groupNumber projectTitle")
+      .populate("members", "fullName studentId")
 
-    // 2. Filter only those where Faculty and Library are both approved
     const results = await Promise.all(
       labs.map(async (lab) => {
-        const student = lab.members[0]; // pick one student to check clearance
-        const clearance = await Clearance.findOne({ studentId: student._id }).lean();
+        const student = lab.members[0]
+        const clearance = await Clearance.findOne({ studentId: student._id }).lean()
 
-        const facultyCleared = clearance?.faculty?.status === 'Approved';
-        const libraryCleared = clearance?.library?.status === 'Approved';
-        const libraryDate = clearance?.library?.clearedAt;
+        const facultyCleared = clearance?.faculty?.status === "Approved"
+        const libraryCleared = clearance?.library?.status === "Approved"
+        const libraryDate = clearance?.library?.clearedAt
 
-        return (facultyCleared && libraryCleared)
-          ? { ...lab.toObject(), libraryDate }
-          : null;
-      })
-    );
+        return facultyCleared && libraryCleared ? { ...lab.toObject(), libraryDate } : null
+      }),
+    )
 
-    // 3. Keep only valid results
-    const validLabs = results.filter(Boolean);
+    const validLabs = results.filter(Boolean)
+    validLabs.sort((a, b) => new Date(a.libraryDate) - new Date(b.libraryDate))
 
-    // 4. Sort by Library approval time (first-come-first-serve)
-    validLabs.sort((a, b) => new Date(a.libraryDate) - new Date(b.libraryDate));
-
-    // 5. If there's a search query, filter by group number, student, or title
-    const normalizedQuery = query?.toLowerCase().replace(/\s+/g, "") || "";
+    const normalizedQuery = query?.toLowerCase().replace(/\s+/g, "") || ""
 
     const filtered = query
       ? validLabs.filter((lab) => {
-          const groupNumber = lab.groupId?.groupNumber?.toString() || "";
-          const groupFull = `group${groupNumber}`.toLowerCase().replace(/\s+/g, "");
-          const projectTitle = lab.groupId?.projectTitle?.toLowerCase() || "";
+          const groupNumber = lab.groupId?.groupNumber?.toString() || ""
+          const groupFull = `group${groupNumber}`.toLowerCase().replace(/\s+/g, "")
+          const projectTitle = lab.groupId?.projectTitle?.toLowerCase() || ""
 
-          const matchGroup = groupFull.includes(normalizedQuery) || groupNumber.includes(normalizedQuery);
-          const matchTitle = projectTitle.includes(normalizedQuery);
+          const matchGroup = groupFull.includes(normalizedQuery) || groupNumber.includes(normalizedQuery)
+          const matchTitle = projectTitle.includes(normalizedQuery)
           const matchStudent = lab.members.some((m) =>
-            `${m.fullName} ${m.studentId}`.toLowerCase().replace(/\s+/g, "").includes(normalizedQuery)
-          );
+            `${m.fullName} ${m.studentId}`.toLowerCase().replace(/\s+/g, "").includes(normalizedQuery),
+          )
 
-          return matchGroup || matchTitle || matchStudent;
+          return matchGroup || matchTitle || matchStudent
         })
-      : validLabs;
+      : validLabs
 
-    return res.status(200).json(filtered);
+    return res.status(200).json(filtered)
   } catch (err) {
-    console.error("❌ Lab pending fetch error:", err);
-    return res.status(500).json({ message: 'Error fetching pending lab records', error: err.message });
+    console.error("❌ Lab pending fetch error:", err)
+    return res.status(500).json({ message: "Error fetching pending lab records", error: err.message })
   }
-};
-
-// 🔹 Approve lab clearance
- //(since it's pre-generated)
+}
 
 export const approveLab = async (req, res) => {
   try {
@@ -118,7 +100,6 @@ export const approveLab = async (req, res) => {
       return res.status(404).json({ message: "Lab record not found" })
     }
 
-    // Your existing validation logic...
     const expected = (record.expectedItems || []).map((i) => i.trim().toLowerCase())
     const returned = Array.isArray(returnedItems)
       ? returnedItems.map((i) => i.trim().toLowerCase())
@@ -159,7 +140,6 @@ export const approveLab = async (req, res) => {
       )
     }
 
-    // Update student clearances
     const students = await Student.find({ groupId }).select("_id")
     for (const student of students) {
       let clearance = await Clearance.findOne({ studentId: student._id })
@@ -177,7 +157,6 @@ export const approveLab = async (req, res) => {
       }
       await clearance.save()
 
-      // ✅ NEW: Check if examination record should be created
       if (record.status === "Approved") {
         const examResult = await checkAndCreateExaminationRecord(student._id)
         if (examResult.created) {
@@ -208,268 +187,236 @@ export const approveLab = async (req, res) => {
   }
 }
 
-
-
-// 🔹 Reject lab clearance
-// 🔹 Reject lab clearance
 export const rejectLab = async (req, res) => {
   try {
-    const { groupId, issues } = req.body;
+    const { groupId, issues } = req.body
 
-    // 1. Find the Lab record
-    const record = await Lab.findOne({ groupId });
-    if (!record) return res.status(404).json({ message: 'Lab record not found' });
+    const record = await Lab.findOne({ groupId })
+    if (!record) return res.status(404).json({ message: "Lab record not found" })
 
-    // 2. Update Lab record
-    record.status = 'Rejected';
-    record.issues = issues || 'Unspecified';
-    record.clearedAt = null;
+    record.status = "Rejected"
+    record.issues = issues || "Unspecified"
+    record.clearedAt = null
 
+    record.history = record.history || []
+    record.history.push({
+      status: "Rejected",
+      reason: issues || "Unspecified",
+      actor: req.user._id,
+      date: new Date(),
+    })
 
-    record.history = record.history || [];
-record.history.push({
-  status: 'Rejected',
-  reason: issues || 'Unspecified',
-  actor: req.user._id,
-  date: new Date()
-});
+    await record.save()
 
-    await record.save();
-
-    // 3. Update Group progress
     await Group.updateOne(
       { _id: groupId },
       {
         $set: {
-          'clearanceProgress.lab.status': 'Rejected',
-          'clearanceProgress.lab.date': new Date()
-        }
-      }
-    );
+          "clearanceProgress.lab.status": "Rejected",
+          "clearanceProgress.lab.date": new Date(),
+        },
+      },
+    )
 
-    // 4. Get students in the group
-    const students = await Student.find({ groupId }).select('_id');
+    const students = await Student.find({ groupId }).select("_id")
 
-    // 5. Update each student's clearance record
     for (const student of students) {
-      const clearance = await Clearance.findOne({ studentId: student._id });
+      const clearance = await Clearance.findOne({ studentId: student._id })
       if (clearance) {
-        clearance.lab.status = 'Rejected';
-        clearance.lab.clearedAt = null;
-        await clearance.save();
-        console.log(`❌ Lab clearance rejected for student: ${student._id}`);
+        clearance.lab.status = "Rejected"
+        clearance.lab.clearedAt = null
+        await clearance.save()
+        console.log(`❌ Lab clearance rejected for student: ${student._id}`)
       }
     }
 
-    res.status(200).json({ message: 'Lab record rejected and student clearances updated.' });
+    res.status(200).json({ message: "Lab record rejected and student clearances updated." })
   } catch (err) {
-    console.error("❌ Lab rejection error:", err);
-    res.status(500).json({ error: 'Rejection failed', message: err.message });
+    console.error("❌ Lab rejection error:", err)
+    res.status(500).json({ error: "Rejection failed", message: err.message })
   }
-};
+}
 
-// 🔹 Get counts of lab clearance statuses
 export const getLabStats = async (req, res) => {
   try {
-    const allLabs = await Lab.find().select('groupId status members');
+    const allLabs = await Lab.find().select("groupId status members")
 
-    // Run all clearance lookups in parallel
     const results = await Promise.all(
       allLabs.map(async (lab) => {
-        const student = lab.members[0]; // any member
-        const clearance = await Clearance.findOne({ studentId: student }).lean();
+        const student = lab.members[0]
+        const clearance = await Clearance.findOne({ studentId: student }).lean()
 
-        const facultyCleared = clearance?.faculty?.status === 'Approved';
-        const libraryCleared = clearance?.library?.status === 'Approved';
+        const facultyCleared = clearance?.faculty?.status === "Approved"
+        const libraryCleared = clearance?.library?.status === "Approved"
 
         return {
           status: lab.status,
-          isReady: facultyCleared && libraryCleared
-        };
-      })
-    );
+          isReady: facultyCleared && libraryCleared,
+        }
+      }),
+    )
 
-    // Tally the results
-    let pending = 0, approved = 0, rejected = 0;
+    let pending = 0,
+      approved = 0,
+      rejected = 0
 
     for (const r of results) {
-      if (r.status === 'Pending' && r.isReady) pending++;
-      else if (r.status === 'Approved') approved++;
-      else if (r.status === 'Rejected') rejected++;
+      if (r.status === "Pending" && r.isReady) pending++
+      else if (r.status === "Approved") approved++
+      else if (r.status === "Rejected") rejected++
     }
 
-    return res.status(200).json({ pending, approved, rejected });
+    return res.status(200).json({ pending, approved, rejected })
   } catch (err) {
-    console.error("❌ getLabStats error:", err);
-    return res.status(500).json({ message: "Failed to fetch lab stats", error: err.message });
+    console.error("❌ getLabStats error:", err)
+    return res.status(500).json({ message: "Failed to fetch lab stats", error: err.message })
   }
-};
-
+}
 
 export const getLabProfile = async (req, res) => {
   try {
-    const userId = req.user.id; // Assume token verification middleware sets req.user
-    const profile = await Lab.findById(userId);
+    const userId = req.user.id
+    const profile = await Lab.findById(userId)
 
     if (!profile) {
-      return res.status(404).json({ message: "Profile not found" });
+      return res.status(404).json({ message: "Profile not found" })
     }
-    res.status(200).json(profile);
+    res.status(200).json(profile)
   } catch (err) {
-    res.status(500).json({ message: "Failed to fetch profile", error: err.message });
+    res.status(500).json({ message: "Failed to fetch profile", error: err.message })
   }
-};
+}
 
-
-// 🔁 Resubmit Lab Clearance after Rejection
 export const markLabReadyAgain = async (req, res) => {
-  const { groupId } = req.body;
-  const actorId = req.user._id;
+  const { groupId } = req.body
+  const actorId = req.user._id
 
   try {
-    const lab = await Lab.findOne({ groupId });
-    if (!lab) return res.status(404).json({ message: "Lab record not found." });
+    const lab = await Lab.findOne({ groupId })
+    if (!lab) return res.status(404).json({ message: "Lab record not found." })
 
-    if (lab.status !== 'Rejected') {
-      return res.status(400).json({ message: "Only rejected lab records can be marked ready again." });
+    if (lab.status !== "Rejected") {
+      return res.status(400).json({ message: "Only rejected lab records can be marked ready again." })
     }
 
-    // ✅ Update status to Pending
-    lab.status = 'Pending';
-    lab.issues = '';
-    lab.returnedItems = [];
-    lab.clearedAt = null;
+    lab.status = "Pending"
+    lab.issues = ""
+    lab.returnedItems = []
+    lab.clearedAt = null
 
+    lab.history = lab.history || []
+    lab.history.push({
+      status: "Pending",
+      reason: "Marked ready again after rejection",
+      actor: actorId,
+      date: new Date(),
+    })
 
-    lab.history = lab.history || [];
-lab.history.push({
-  status: "Pending",
-  reason: "Marked ready again after rejection",
-  actor: actorId,
-  date: new Date()
-});
+    await lab.save()
 
-
-    await lab.save();
-
-    // ✅ Update Group progress
     await Group.updateOne(
       { _id: groupId },
       {
         $set: {
-          'clearanceProgress.lab.status': 'Pending',
-          'clearanceProgress.lab.date': new Date()
-        }
-      }
-    );
+          "clearanceProgress.lab.status": "Pending",
+          "clearanceProgress.lab.date": new Date(),
+        },
+      },
+    )
 
-    // ✅ Update Student Clearances
-    const students = await Student.find({ groupId }).select('_id');
+    const students = await Student.find({ groupId }).select("_id")
 
     for (const student of students) {
-      let clearance = await Clearance.findOne({ studentId: student._id });
+      let clearance = await Clearance.findOne({ studentId: student._id })
       if (!clearance) {
         clearance = new Clearance({
           studentId: student._id,
           lab: {
             status: "Pending",
-            clearedAt: null
-          }
-        });
+            clearedAt: null,
+          },
+        })
       } else {
-        clearance.lab.status = "Pending";
-        clearance.lab.clearedAt = null;
+        clearance.lab.status = "Pending"
+        clearance.lab.clearedAt = null
       }
-      await clearance.save();
+      await clearance.save()
     }
 
-    // Optional: Emit WebSocket if needed
     if (global._io) {
       global._io.emit("lab-resubmission", {
         groupId,
         status: "Pending",
         timestamp: new Date(),
-      });
+      })
     }
 
-    res.status(200).json({ message: "Lab marked as ready again." });
-
+    res.status(200).json({ message: "Lab marked as ready again." })
   } catch (err) {
-    console.error("❌ markLabReadyAgain error:", err);
-    res.status(500).json({ message: "Failed to mark lab as ready again", error: err.message });
+    console.error("❌ markLabReadyAgain error:", err)
+    res.status(500).json({ message: "Failed to mark lab as ready again", error: err.message })
   }
-};
+}
 
-
-// GET /api/lab/history/:groupId
 export const getLabHistory = async (req, res) => {
   try {
-    const { groupId } = req.params;
-    const lab = await Lab.findOne({ groupId }).populate('history.actor', 'fullName role');
+    const { groupId } = req.params
+    const lab = await Lab.findOne({ groupId }).populate("history.actor", "fullName role")
 
-    if (!lab) return res.status(404).json({ message: "Lab record not found" });
+    if (!lab) return res.status(404).json({ message: "Lab record not found" })
 
-    return res.status(200).json({ history: lab.history || [] });
+    return res.status(200).json({ history: lab.history || [] })
   } catch (err) {
-    console.error("❌ Lab history fetch error:", err);
-    res.status(500).json({ message: "Failed to fetch lab history", error: err.message });
+    console.error("❌ Lab history fetch error:", err)
+    res.status(500).json({ message: "Failed to fetch lab history", error: err.message })
   }
-};
+}
 
-
-
-
-
-// 🔹 Get Lab Clearance for Logged-In Student’s Group
 export const getMyGroupLab = async (req, res) => {
   try {
-    console.log(`📥 getMyGroupLab called by: ${req.user?.id || req.user?.studentId}`);
+    console.log(`📥 getMyGroupLab called by: ${req.user?.id || req.user?.studentId}`)
 
-    // 1️⃣ Identify the student using JWT payload
-    let student = null;
+    let student = null
 
     if (req.user.id) {
-      student = await Student.findById(req.user.id);
+      student = await Student.findById(req.user.id)
     }
     if (!student && req.user.studentId) {
-      student = await Student.findOne({ studentId: req.user.studentId });
+      student = await Student.findOne({ studentId: req.user.studentId })
     }
 
     if (!student) {
-      console.warn("❌ Student not found.");
-      return res.status(404).json({ ok: false, message: "Student not found" });
+      console.warn("❌ Student not found.")
+      return res.status(404).json({ ok: false, message: "Student not found" })
     }
 
     if (!student.groupId) {
-      console.warn("⚠️ Student is not assigned to any group.");
-      return res.status(404).json({ ok: false, message: "Student not assigned to a group" });
+      console.warn("⚠️ Student is not assigned to any group.")
+      return res.status(404).json({ ok: false, message: "Student not assigned to a group" })
     }
 
-    // 2️⃣ Retrieve lab clearance for the group
-    const labRecord = await Lab.findOne({ groupId: student.groupId });
+    const labRecord = await Lab.findOne({ groupId: student.groupId })
 
     if (!labRecord) {
-      console.info("ℹ️ No lab clearance started for this group.");
-      return res.status(200).json({ ok: false, message: "No lab clearance started for this group" });
+      console.info("ℹ️ No lab clearance started for this group.")
+      return res.status(200).json({ ok: false, message: "No lab clearance started for this group" })
     }
 
-    // 3️⃣ Return lab status and relevant info
     return res.status(200).json({
       ok: true,
-      status: labRecord.status,                    // "Pending" | "Approved" | "Rejected" | "Incomplete"
+      status: labRecord.status,
       issues: labRecord.issues || "",
       expectedItems: labRecord.expectedItems || [],
       returnedItems: labRecord.returnedItems || [],
       groupId: student.groupId,
       clearedAt: labRecord.clearedAt,
-    });
-
+    })
   } catch (err) {
-    console.error("❌ getMyGroupLab error:", err.message);
+    console.error("❌ getMyGroupLab error:", err.message)
     return res.status(500).json({
       ok: false,
-      message: "Failed to fetch your group’s lab clearance status",
+      message: "Failed to fetch your group's lab clearance status",
       error: err.message,
-    });
+    })
   }
-};
+}
