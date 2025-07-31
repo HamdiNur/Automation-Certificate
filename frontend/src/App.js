@@ -28,7 +28,6 @@ import FacultyChat from "./facualty/pages/FacultyChat";
 
 // Lab Pages
 import LabDashboard from "./Lap/pages/LabDashboard";
-import LabEquipment from "./Lap/pages/LabEquipment";
 import LabProfile from "./Lap/pages/LabProfile";
 import ApprovedLabClearances from "./Lap/pages/ApprovedLabClearances";
 import RejectedLabReturns from "./Lap/pages/RejectedLabReturns";
@@ -44,7 +43,6 @@ import ApprovedSubmissions from "./Library/pages/ApprovedSubmissions";
 import RejectedSubmissions from "./Library/pages/RejectedSubmissions";
 import LibraryChat from "./Library/pages/LibraryChat";
 
-import StudentList from "./Library/pages/StudentList";
 import GroupDetails from "./Library/pages/GroupDetails";
 
 // Finance Pages
@@ -91,7 +89,6 @@ function App() {
 
           {/* Lab */}
           <Route path="/lab/dashboard" element={<LabDashboard />} />
-          <Route path="/lab/equipment" element={<LabEquipment />} />
           <Route path="/lab/profile" element={<LabProfile />} />
           <Route path="/lab/approved" element={<ApprovedLabClearances />} />
           <Route path="/lab/rejected" element={<RejectedLabReturns />} />
@@ -107,7 +104,6 @@ function App() {
           <Route path="/library/rejected" element={<RejectedSubmissions />} />
           <Route path="/library/chat" element={<LibraryChat />} />
 
-          <Route path="/library/students" element={<StudentList />} />
           <Route path="/library/group/:groupId" element={<GroupDetails />} />
 
           {/* Finance */}

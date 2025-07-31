@@ -17,11 +17,14 @@ const port = process.env.PORT || 5000;
 const server = http.createServer(app);
 const io = new SocketServer(server, {
   cors: {
-    origin: 'http://localhost:3000', // React frontend origin
+origin: [
+  'http://localhost:3000',
+  'http://10.39.78.142:5000'
+]
+,    methods: ['GET', 'POST'],
     credentials: true
   }
 });
-
 // Expose io globally so controllers can emit events
 global._io = io;
 
@@ -36,8 +39,11 @@ io.on('connection', (socket) => {
 
 // Middleware
 app.use(cors({
-  origin: 'http://localhost:3000',
-  credentials: true
+origin: [
+  'http://localhost:3000',
+  'http://10.39.78.142:5000'
+]
+,  credentials: true
 }));
 app.use(express.json());
 

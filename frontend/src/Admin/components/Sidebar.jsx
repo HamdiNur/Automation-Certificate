@@ -97,10 +97,7 @@ function Sidebar() {
             <FiBookOpen />
             <Link to="/courses">Courses</Link>
           </li>
-          <li className={isActive("/users") ? "active" : ""}>
-            <FiUser />
-            <Link to="/users">Users</Link>
-          </li>
+     
           <li className={isActive("/examination/chat") ? "active" : ""}>
   <FaComments />
   <Link to="/examination/chat">Chat Inbox</Link>

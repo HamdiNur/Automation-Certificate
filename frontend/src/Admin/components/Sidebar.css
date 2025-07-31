@@ -9,9 +9,15 @@
   left: 0;
   z-index: 1000; /* ✅ ensure it stays on top */
   overflow-y: auto; /* scroll internally if content is long */
+   /* ✅ Hide scrollbar (Webkit browsers like Chrome, Edge) */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
 }
 
 
+.sidebar-modern::-webkit-scrollbar {
+  display: none; /* Chrome, Safari */
+}
   
   .sidebar-modern h2.logo {
     font-size: 22px;

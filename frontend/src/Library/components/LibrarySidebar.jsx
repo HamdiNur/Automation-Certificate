@@ -95,10 +95,7 @@ function LibrarySidebar() {
   <FaComments />
   <Link to="/library/chat">Chat Inbox</Link>
 </li>
-          <li className={isActive("/library/students") ? "active" : ""}>
-            <FiUsers />
-            <Link to="/library/students">Student List</Link>
-          </li>
+         
           <li className={isActive("/library/profile") ? "active" : ""}>
             <FiUser />
             <Link to="/library/profile">My Profile</Link>

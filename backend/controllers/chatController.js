@@ -1,105 +1,173 @@
-import Chat from '../models/chat.js';
-import Student from '../models/Student.js';
-import User from '../models/User.js';
-import { chatResponses, getRandomResponse, addBlessing, getLocalizedResponse } from '../utils/chatResponses.js';
+import Chat from "../models/chat.js"
+import Student from "../models/Student.js"
+import User from "../models/User.js"
+import { chatResponses, getRandomResponse, addBlessing, getLocalizedResponse } from "../utils/chatResponses.js"
 
-// 🔍 Keyword-based department detection
+function capitalize(str) {
+  if (!str) return ""
+  return str.charAt(0).toUpperCase() + str.slice(1)
+}
+
+// Check if message is a resolution command
+const isResolutionCommand = (message) => {
+  const lower = message.toLowerCase().trim()
+  return (
+    lower === "resolved" ||
+    lower === "done" ||
+    lower === "finished" ||
+    lower === "solved" ||
+    lower === "back to general" ||
+    lower === "go back" ||
+    lower === "general" ||
+    lower === "home" ||
+    lower === "main menu"
+  )
+}
 
 const detectMessageType = (message) => {
   const lower = message.toLowerCase().trim();
-  
-  // 🕌 Islamic & Regular Greetings
-  if (
-    lower.match(/^(hi|hello|hey|good morning|good afternoon|good evening)/) ||
-    lower.match(/^(asc|assalamu|assalamu calaykum|assalamu alaykum|salaam|salam)/) ||
-    lower.includes("assalamu calaykum") || lower.includes("peace be upon you")
-  ) {
-    return "greeting";
+
+  // Check for resolution commands first
+  if (isResolutionCommand(message)) {
+    return "resolved";
   }
-  
-  // 🏫 App/University questions
+
+  // Thank you expressions
   if (
-    lower.includes("what is this") || lower.includes("how does this work") || 
-    lower.includes("what is the app") || lower.includes("jamhuriya") ||
-    lower.includes("university") || lower.includes("clearance system")
+    lower === "thanks" ||
+    lower === "thank you" ||
+    lower === "thx" ||
+    lower === "mahadsanid" ||
+    lower === "aad baad u mahadsantahay"
+  ) {
+    return "thank_you";
+  }
+
+  // Islamic & Regular Greetings
+  if (lower.match(/^(hi|hello|hey|good morning|good afternoon|good evening)/)) {
+    return "hi";
+  }
+  if (lower.match(/^(asc|ascw|asc wr wb|assalamu calaykum)/) || lower.startsWith("asc")) {
+    return "asc";
+  }
+  if (
+    lower.match(/^(assalamu alaykum|salaam|salam|peace be upon you)/) ||
+    lower.includes("wa alaykumu") ||
+    lower.includes("alaykum salaam")
+  ) {
+    return "salam";
+  }
+
+  // App/University questions (English & Somali)
+  if (
+    lower.includes("what is this") ||
+    lower.includes("how does this work") ||
+    lower.includes("what is the app") ||
+    lower.includes("jamhuriya") ||
+    lower.includes("university") ||
+    lower.includes("clearance system") ||
+    lower.includes("waa maxay") ||
+    lower.includes("muxuu qabtaa") ||
+    lower.includes("waa ayo") ||
+    lower.includes("application") ||
+    lower.includes("app-kan") ||
+    lower.includes("nidaamkan") ||
+    lower.includes("nidaamka")
   ) {
     return "app_info";
   }
-  
-  // 📊 Status questions
+
+  // Status questions
   if (
-    lower.includes("my status") || lower.includes("where am i") || 
-    lower.includes("what's next") || lower.includes("progress") ||
-    lower.includes("xaalka") || lower.includes("halkee gaadhay") // Somali for status
+    lower.includes("my status") ||
+    lower.includes("where am i") ||
+    lower.includes("what's next") ||
+    lower.includes("progress") ||
+    lower.includes("xaalka") ||
+    lower.includes("halkee gaadhay")
   ) {
     return "status_check";
   }
-  
-  // ❓ Help questions
+
+  // Help questions
   if (
-    lower.includes("how do i") || lower.includes("how to") || 
-    lower.includes("what should i do") || lower.includes("help") ||
-    lower.includes("sidee") || lower.includes("maxaan sameeya") // Somali for how/what to do
+    lower.includes("how do i") ||
+    lower.includes("how to") ||
+    lower.includes("what should i do") ||
+    lower.includes("help") ||
+    lower.includes("sidee") ||
+    lower.includes("maxaan sameeya")
   ) {
     return "help_request";
   }
-  
-  // 🏢 Department detection (your existing logic)
+
   return autoDetectDepartment(message);
 };
+
+
 const autoDetectDepartment = (message) => {
-  const lower = message.toLowerCase();
+  const lower = message.toLowerCase()
 
   if (
-    lower.includes("lacag") || lower.includes("payment") ||
-    lower.includes("fees") || lower.includes("bixin") ||
-    lower.includes("finance") || lower.includes("waafi") ||
-    lower.includes("malin") || lower.includes("mali")
-  ) return "finance";
+    lower.includes("lacag") ||
+    lower.includes("payment") ||
+    lower.includes("fees") ||
+    lower.includes("bixin") ||
+    lower.includes("finance") ||
+    lower.includes("waafi") ||
+    lower.includes("malin") ||
+    lower.includes("mali")
+  )
+    return "finance"
+
+  if (lower.includes("kutub") || lower.includes("book") || lower.includes("library") || lower.includes("thesis"))
+    return "library"
+
+  if (lower.includes("qalab") || lower.includes("equipment") || lower.includes("lab") || lower.includes("return items"))
+    return "lab"
 
   if (
-    lower.includes("kutub") || lower.includes("book") ||
-    lower.includes("library") || lower.includes("thesis")
-  ) return "library";
+    lower.includes("macalin") ||
+    lower.includes("teacher") ||
+    lower.includes("faculty") ||
+    lower.includes("supervisor") ||
+    lower.includes("project") ||
+    lower.includes("research")
+  )
+    return "faculty"
 
   if (
-    lower.includes("qalab") || lower.includes("equipment") ||
-    lower.includes("lab") || lower.includes("return items")
-  ) return "lab";
+    lower.includes("imtixaan") ||
+    lower.includes("exam") ||
+    lower.includes("examination") ||
+    lower.includes("certificate") ||
+    lower.includes("shahaado") ||
+    lower.includes("name correction") ||
+    lower.includes("result") ||
+    lower.includes("passport")
+  )
+    return "exam_office"
 
-  if (
-    lower.includes("macalin") || lower.includes("teacher") ||
-    lower.includes("faculty") || lower.includes("supervisor") ||
-    lower.includes("project") || lower.includes("research")
-  ) return "faculty";
-
-  if (
-    lower.includes("imtixaan") || lower.includes("exam") ||
-    lower.includes("examination") || lower.includes("certificate") ||
-    lower.includes("shahaado") || lower.includes("name correction") ||
-    lower.includes("result") || lower.includes("passport")
-  ) return "examination";
-
-  return "general";
-};
-
-// 📩 Student/Admin Send Message
+  return "general"
+}
 
 export const sendMessage = async (req, res) => {
   try {
-    let { senderId, senderType, message } = req.body;
+    let { senderId, senderType, message, department: clientDept } = req.body;
+
     if (!senderId || !senderType || !message) {
-      return res.status(400).json({ error: 'Missing fields' });
+      return res.status(400).json({ error: "Missing fields" });
     }
 
     let senderName = "Unknown";
-    let department = "general";
-    let receiverId = null;
+    let department = clientDept || "general"; // Prioritize frontend-sent department
+    const receiverId = null;
     let botResponse = null;
     let shouldRoute = false;
 
     if (senderType === "student") {
       let student = null;
+
       if (senderId.match(/^[0-9a-fA-F]{24}$/)) {
         student = await Student.findById(senderId);
       }
@@ -111,52 +179,98 @@ export const sendMessage = async (req, res) => {
       senderId = student._id.toString();
       senderName = student.fullName;
 
-      // 🤖 BOT RESPONSE LOGIC - Now using organized responses
       const messageType = detectMessageType(message);
+      const isValidDept = ["finance", "faculty", "library", "exam_office", "lab"];
 
-      switch(messageType) {
-        case "greeting":
-          botResponse = getLocalizedResponse(message, "greeting");
-          break;
-          
-        case "app_info":
-          botResponse = getLocalizedResponse(message, "app_info");
-          break;
-
-        case "help":
-          botResponse = addBlessing(chatResponses.help_general);
-          break;
-
-        case "status":
-          botResponse = chatResponses.status_help;
-          break;
-          
-        case "finance":
-        case "library": 
-        case "lab":
-        case "faculty":
-        case "examination":
-          // Use organized routing messages
-          botResponse = chatResponses.routing_messages[messageType];
-          shouldRoute = true;
-          department = messageType;
-          break;
+      // 🟢 Handle resolution command
+      if (messageType === "resolved") {
+        student.lastDepartment = "general";
+        await student.save();
+        botResponse = getRandomResponse(chatResponses.resolved_responses);
+        department = "general";
       }
 
-      // Rest of your existing logic...
-      if (!shouldRoute) {
-        const detected = autoDetectDepartment(message);
-        department = detected !== "general" ? detected : (student.lastDepartment || "general");
+      // 🟡 Student is already in a department and said something generic
+      else if (
+        student.lastDepartment &&
+        student.lastDepartment !== "general" &&
+        messageType === "general"
+      ) {
+        department = student.lastDepartment;
+      }
 
-        if (department === "general") {
-          const lastStudentMessage = await Chat.findOne({ senderId }).sort({ timestamp: -1 });
-          if (lastStudentMessage && lastStudentMessage.department !== "general") {
-            department = lastStudentMessage.department;
+      // 🔵 Handle normal routing
+      else {
+        // 🔹 Prioritize valid frontend department
+        if (clientDept && isValidDept.includes(clientDept)) {
+          department = clientDept;
+          shouldRoute = true;
+        } else {
+          switch (messageType) {
+          case "hi":
+       case "asc":
+         case "salam":
+         const greetingArray = chatResponses.greeting[messageType] || chatResponses.greeting.fallback;
+          botResponse = getRandomResponse(greetingArray);
+             break;
+
+            case "app_info":
+              botResponse = getLocalizedResponse(message, "app_info");
+              break;
+            case "help_request":
+              botResponse = addBlessing(chatResponses.help_general);
+              break;
+            case "status_check":
+              botResponse = chatResponses.status_help;
+              break;
+            case "finance":
+            case "library":
+            case "lab":
+            case "faculty":
+            case "exam_office":
+              botResponse = chatResponses.routing_messages[messageType];
+              shouldRoute = true;
+              department = messageType;
+              break;
+              case "thank_you":
+  botResponse = getRandomResponse(chatResponses.thank_you_responses);
+  break;
+
+case "unknown":
+  botResponse = getRandomResponse(chatResponses.unknown_responses);
+
+  // Reuse last department if available
+case "unknown":
+  if (student.lastDepartment && student.lastDepartment !== "general") {
+    botResponse = `I'm not sure I understood that. 🤔 Would you like me to forward this to your last department (${capitalize(student.lastDepartment)})? Just reply with "yes" or the department name.`;
+  } else {
+    botResponse = getRandomResponse(chatResponses.unknown_responses);
+  }
+  break;
+            default:
+              if (!student.lastDepartment || student.lastDepartment === "general") {
+                botResponse =
+                  "I'm here to assist you with university-related services. Please mention the department or topic (e.g., payment, thesis, exam) for faster assistance.";
+              } else {
+                department = student.lastDepartment;
+              }
+              break;
           }
         }
       }
 
+      // 📝 Update student's last department
       if (department !== "general") {
+        const yesNo = message.toLowerCase().trim();
+if ((yesNo === "yes" || yesNo === "haa") && student.lastDepartment && student.lastDepartment !== "general") {
+  department = student.lastDepartment;
+  shouldRoute = true;
+  botResponse = `Okay! I'm forwarding your message to the ${capitalize(student.lastDepartment)} department. ✅`;
+}
+if (yesNo === "no" || yesNo === "maya") {
+  botResponse = "Okay, let me know how I can assist you.";
+}
+
         student.lastDepartment = department;
         await student.save();
       }
@@ -166,7 +280,7 @@ export const sendMessage = async (req, res) => {
       department = user?.department || "general";
     }
 
-    // Save original message
+    // 💾 Save student message
     const newMessage = new Chat({
       senderId,
       senderType,
@@ -178,148 +292,198 @@ export const sendMessage = async (req, res) => {
     });
     await newMessage.save();
 
-    // 🤖 Send bot response if available
+    console.log(`📤 Message saved: ${message} | Department: ${department} | Sender: ${senderName}`);
+
+    // 📡 Emit to general listeners (includes student)
+    global._io.emit("newMessage", newMessage);
+
+    // 📡 Emit to specific department
+    if (department !== "general") {
+      global._io.emit(`department:${department}`, newMessage);
+      console.log(`📡 Message emitted to department:${department}`);
+    }
+
+    // 🤖 Bot/system response (to student only)
     if (botResponse && senderType === "student") {
       const botMessage = new Chat({
         senderId: "system",
-        senderType: "chatbot", 
-        senderName: "Jamhuriya Assistant",
+        senderType: "chatbot",
+        senderName: "Assistant",
         message: botResponse,
         department: department,
         receiverId: senderId,
         timestamp: new Date(),
+        isSystemMessage: shouldRoute,
       });
       await botMessage.save();
-      
-      global._io.emit('newMessage', newMessage);
-      global._io.emit('newMessage', botMessage);
-      
-      return res.status(201).json({ 
-        studentMessage: newMessage, 
-        botResponse: botMessage 
+
+      global._io.emit("newMessage", botMessage);
+
+      console.log(`🤖 Bot response sent: ${botResponse}`);
+
+      return res.status(201).json({
+        studentMessage: newMessage,
+        botResponse: botMessage,
       });
     }
 
-    global._io.emit('newMessage', newMessage);
     res.status(201).json(newMessage);
-
   } catch (err) {
     console.error("Send Message Error:", err);
-    res.status(500).json({ error: 'Server error while sending message' });
+    res.status(500).json({ error: "Server error while sending message" });
   }
 };
 
 
-// 📥 Get messages (only for one student)
 export const getMessages = async (req, res) => {
   try {
-    const { studentId } = req.params;
-    let student = null;
+    const { studentId } = req.params
+    let student = null
+
     if (studentId.match(/^[0-9a-fA-F]{24}$/)) {
-      student = await Student.findById(studentId);
+      student = await Student.findById(studentId)
     }
     if (!student) {
-      student = await Student.findOne({ studentId });
+      student = await Student.findOne({ studentId })
     }
     if (!student) {
-      return res.status(404).json({ error: "Student not found" });
+      return res.status(404).json({ error: "Student not found" })
     }
 
+    // Get ALL messages for this student across ALL departments
     const messages = await Chat.find({
-      $or: [
-        { senderId: student._id.toString() },
-        { receiverId: student._id.toString() }
-      ]
-    }).sort({ timestamp: 1 }); // ✅ FIXED: Changed from createdAt to timestamp
+      $or: [{ senderId: student._id.toString() }, { receiverId: student._id.toString() }],
+    }).sort({ timestamp: 1 })
 
-    res.status(200).json(messages);
+    res.status(200).json(messages)
   } catch (err) {
-    console.error("Get Messages Error:", err);
-    res.status(500).json({ error: "Server error while fetching messages" });
+    console.error("Get Messages Error:", err)
+    res.status(500).json({ error: "Server error while fetching messages" })
   }
-};
+}
 
-// 📨 Admin replies to a student message
 export const replyToStudent = async (req, res) => {
-  const { message } = req.body;
-  const { messageId } = req.params;
-  const senderType = "finance"; // or req.user.department
+  const { message } = req.body
+  const { messageId } = req.params
+
+  const validSenderTypes = ["student", "chatbot", "finance", "faculty", "library", "exam_office", "lab"]
+  let senderType = req.user?.department?.toLowerCase().replace(/\s+/g, "_")
+
+  if (!validSenderTypes.includes(senderType)) {
+    senderType = "library" // Default to library for this frontend
+  }
 
   try {
-    if (!messageId) return res.status(400).json({ error: "Message ID missing" });
+    if (!messageId) return res.status(400).json({ error: "Message ID missing" })
 
-    const original = await Chat.findById(messageId);
-    if (!original) return res.status(404).json({ error: "Original message not found" });
+    const original = await Chat.findById(messageId)
+    if (!original) return res.status(404).json({ error: "Original message not found" })
 
     const newReply = new Chat({
       senderType,
-      senderName: "Finance Department",
+      senderName: `${capitalize(senderType)} Department`,
       senderId: req.user._id,
       message,
       department: original.department,
-      receiverId: original.senderId, // ✅ Target specific student
+      receiverId: original.senderId,
       timestamp: new Date(),
       isRead: false,
-    });
+    })
 
-    await newReply.save();
+    await newReply.save()
 
-    const populated = await Chat.findById(newReply._id);
-    global._io.emit('newMessage', populated);
-    res.status(201).json(newReply);
+    console.log(`📤 Staff reply: ${message} | To: ${original.senderId} | Department: ${original.department}`)
 
+    // ✅ FIXED: Emit to all channels so student receives it
+    global._io.emit("newMessage", newReply) // General channel (student will receive this)
+
+    res.status(201).json(newReply)
   } catch (err) {
-    console.error("❌ Reply Error:", err);
-    res.status(500).json({ error: "Failed to send reply" });
+    console.error("❌ Reply Error:", err)
+    res.status(500).json({ error: "Failed to send reply" })
   }
-};
+}
 
-// ✅ Department-wide messages (for admin dashboards)
 export const getMessagesByDepartment = async (req, res) => {
-  const { department } = req.params;
+  const { department } = req.params
 
   try {
-    const messages = await Chat.find({ department }).sort({ timestamp: 1 });
-    res.status(200).json(messages);
-  } catch (error) {
-    console.error('❌ Error fetching department messages:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-};
+    const messages = await Chat.find({
+      department,
+      isSystemMessage: { $ne: true }, // Exclude system messages
+    }).sort({ timestamp: 1 })
 
-// ✅ Mark messages sent TO a student as read
+    console.log(`📥 Fetched ${messages.length} messages for ${department} department`)
+
+    res.status(200).json(messages)
+  } catch (error) {
+    console.error("❌ Error fetching department messages:", error)
+    res.status(500).json({ message: "Server error" })
+  }
+}
+
 export const markMessagesAsRead = async (req, res) => {
-  const { studentId } = req.params;
+  const { studentId } = req.params
 
   try {
     await Chat.updateMany(
       {
         receiverId: studentId,
-        isRead: false
+        isRead: false,
       },
-      { $set: { isRead: true } }
-    );
+      { $set: { isRead: true } },
+    )
 
-    res.status(200).json({ message: "All messages marked as read." });
+    res.status(200).json({ message: "All messages marked as read." })
   } catch (err) {
-    console.error("❌ Mark as read error:", err);
-    res.status(500).json({ error: "Failed to update read status" });
+    console.error("❌ Mark as read error:", err)
+    res.status(500).json({ error: "Failed to update read status" })
   }
-};
+}
 
-// ✅ Count unread messages
 export const getUnreadCount = async (req, res) => {
-  const { studentId } = req.params;
+  const { studentId } = req.params
 
   try {
     const count = await Chat.countDocuments({
       receiverId: studentId,
       isRead: false,
+    })
+
+    res.status(200).json({ count })
+  } catch (err) {
+    console.error("Count Error:", err)
+    res.status(500).json({ error: "Could not fetch unread count" })
+  }
+}
+
+export const markMessageResolved = async (req, res) => {
+  try {
+    const { messageId } = req.params
+
+    const updated = await Chat.findByIdAndUpdate(messageId, { status: "resolved" }, { new: true })
+
+    if (!updated) return res.status(404).json({ error: "Message not found" })
+
+    res.status(200).json({ message: "Marked as resolved.", data: updated })
+  } catch (err) {
+    console.error("❌ Resolve Error:", err)
+    res.status(500).json({ error: "Could not update status" })
+  }
+}
+
+
+// ✅ Controller: Total unread messages for finance (across all students)
+export const getTotalUnreadCount = async (req, res) => {
+  try {
+    const count = await Chat.countDocuments({
+      department: 'finance',
+      isRead: false,
     });
 
-    res.status(200).json({ count });
-  } catch (err) {
-    console.error("Count Error:", err);
-    res.status(500).json({ error: "Could not fetch unread count" });
+    res.json({ total: count });
+  } catch (error) {
+    console.error("Error fetching total unread count:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };

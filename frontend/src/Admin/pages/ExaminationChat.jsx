@@ -1,5 +1,4 @@
 "use client"
-
 import { useEffect, useState, useRef } from "react"
 import axios from "axios"
 import { io } from "socket.io-client"
@@ -16,9 +15,12 @@ function ExaminationChat() {
   const [searchText, setSearchText] = useState("")
   const [loading, setLoading] = useState(true)
   const [socket, setSocket] = useState(null)
+  const [typingUsers, setTypingUsers] = useState({})
+  const [isTyping, setIsTyping] = useState(false)
   const messagesEndRef = useRef(null)
-  const readTracker = useRef({})
+  const typingTimeoutRef = useRef(null)
 
+  const readTracker = useRef({})
   const token = localStorage.getItem("token")
   const userId = jwtDecode(token)?.id
 
@@ -39,12 +41,19 @@ function ExaminationChat() {
     }
 
     fetchMessages()
-
     const saved = localStorage.getItem("readTracker")
     if (saved) readTracker.current = JSON.parse(saved)
 
     const s = io("http://localhost:5000")
     setSocket(s)
+
+    // Listen for typing events
+    s.on("userTyping", ({ userId: typingUserId, studentId, isTyping }) => {
+      setTypingUsers((prev) => ({
+        ...prev,
+        [studentId]: isTyping ? typingUserId : null,
+      }))
+    })
 
     return () => s.disconnect()
   }, [token])
@@ -53,12 +62,37 @@ function ExaminationChat() {
     localStorage.setItem("readTracker", JSON.stringify(readTracker.current))
   }
 
+  // Handle typing indicator
+  const handleTyping = () => {
+    if (!socket || !selectedStudent) return
+
+    if (!isTyping) {
+      setIsTyping(true)
+      socket.emit("typing", {
+        studentId: selectedStudent.studentId,
+        userId,
+        isTyping: true,
+      })
+    }
+
+    clearTimeout(typingTimeoutRef.current)
+    typingTimeoutRef.current = setTimeout(() => {
+      setIsTyping(false)
+      socket.emit("typing", {
+        studentId: selectedStudent.studentId,
+        userId,
+        isTyping: false,
+      })
+    }, 1000)
+  }
+
+  // Search functionality
   useEffect(() => {
     if (!searchText.trim()) {
       setFilteredConversations(conversations)
     } else {
-      const filtered = conversations.filter((c) =>
-        c.studentName.toLowerCase().includes(searchText.toLowerCase())
+      const filtered = conversations.filter((conversation) =>
+        conversation.studentName.toLowerCase().includes(searchText.toLowerCase()),
       )
       setFilteredConversations(filtered)
     }
@@ -68,7 +102,7 @@ function ExaminationChat() {
     if (!socket) return
 
     socket.on("newMessage", (newMsg) => {
-      if (newMsg.department !== "examination") return
+      if (newMsg.department !== "exam_office") return
       if (newMsg.senderId === userId) return
 
       const isStudentMsg = newMsg.senderType === "student"
@@ -83,16 +117,17 @@ function ExaminationChat() {
 
           const updated = [...prev]
           updated[index] = {
-            ...convo,
+            ...updated[index],
             messages: [...convo.messages, newMsg],
             lastMessage: newMsg.message,
             lastMessageTime: newMsg.timestamp,
-            unreadCount:
-              (!readTracker.current[studentId] ||
-                new Date(newMsg.timestamp) > new Date(readTracker.current[studentId])) &&
-              selectedStudent?.studentId !== studentId
-                ? (prev[index]?.unreadCount || 0) + 1
-                : prev[index]?.unreadCount || 0,
+            unreadCount: (() => {
+              const lastRead = readTracker.current[studentId]
+              const isUnread =
+                (!lastRead || new Date(newMsg.timestamp) > new Date(lastRead)) &&
+                selectedStudent?.studentId !== studentId
+              return isUnread ? (prev[index]?.unreadCount || 0) + 1 : prev[index]?.unreadCount || 0
+            })(),
           }
 
           if (selectedStudent?.studentId === studentId) {
@@ -104,6 +139,12 @@ function ExaminationChat() {
 
           return updated.sort((a, b) => new Date(b.lastMessageTime) - new Date(a.lastMessageTime))
         } else {
+          if (selectedStudent?.studentId === studentId) {
+            setSelectedStudent((prevSelected) => ({
+              ...prevSelected,
+              messages: [...prevSelected.messages, newMsg],
+            }))
+          }
           return [
             {
               studentId,
@@ -155,7 +196,6 @@ function ExaminationChat() {
       }
 
       grouped[studentId].messages.push(msg)
-
       if (new Date(msg.timestamp) > new Date(grouped[studentId].lastMessageTime)) {
         grouped[studentId].lastMessage = msg.message
         grouped[studentId].lastMessageTime = msg.timestamp
@@ -180,11 +220,10 @@ function ExaminationChat() {
       const response = await axios.post(
         `http://localhost:5000/api/chat/reply/${selectedStudent.messages[0]._id}`,
         { message: replyText.trim() },
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: { Authorization: `Bearer ${token}` } },
       )
 
       const newMessage = response.data
-
       setSelectedStudent((prev) => ({
         ...prev,
         messages: [...prev.messages, newMessage],
@@ -206,6 +245,16 @@ function ExaminationChat() {
       })
 
       setReplyText("")
+
+      // Stop typing indicator
+      if (socket) {
+        socket.emit("typing", {
+          studentId: selectedStudent.studentId,
+          userId,
+          isTyping: false,
+        })
+      }
+      setIsTyping(false)
     } catch (err) {
       alert("Failed to send reply.")
       console.error(err)
@@ -221,68 +270,106 @@ function ExaminationChat() {
       : date.toLocaleDateString()
   }
 
-  const clearSearch = () => setSearchText("")
+  const clearSearch = () => {
+    setSearchText("")
+  }
+
+  // Group messages by sender for WhatsApp-like display
+  const groupConsecutiveMessages = (messages) => {
+    const grouped = []
+    let currentGroup = null
+
+    messages.forEach((message, index) => {
+      const isSameSender = currentGroup && currentGroup.senderId === message.senderId
+      const timeDiff = currentGroup
+        ? new Date(message.timestamp) - new Date(currentGroup.messages[currentGroup.messages.length - 1].timestamp)
+        : 0
+      const isWithinTimeLimit = timeDiff < 5 * 60 * 1000 // 5 minutes
+
+      if (isSameSender && isWithinTimeLimit) {
+        currentGroup.messages.push(message)
+      } else {
+        if (currentGroup) grouped.push(currentGroup)
+        currentGroup = {
+          senderId: message.senderId,
+          senderName: message.senderName,
+          senderType: message.senderType,
+          messages: [message],
+        }
+      }
+    })
+
+    if (currentGroup) grouped.push(currentGroup)
+    return grouped
+  }
 
   return (
     <div className="dashboard-wrapper">
       <Sidebar />
       <div className="dashboard-main">
-        <div className="chat-container">
-          <div className="chat-sidebar">
-            <div className="chat-header">
-              <MessageCircle size={20} />
-              <h3>Examination Chat</h3>
+        <div className="whatsapp-chat-container">
+          <div className="whatsapp-sidebar">
+            <div className="whatsapp-sidebar-header">
+              <div className="sidebar-title">
+                <MessageCircle size={20} />
+                <h3>Examination Chat</h3>
+              </div>
             </div>
 
-            <div className="search-container">
-              <div className="search-input-wrapper">
-                <Search size={18} className="search-icon" />
+            {/* Compact Search Bar */}
+            <div className="whatsapp-search-container">
+              <div className="whatsapp-search-wrapper">
+                <Search size={16} className="whatsapp-search-icon" />
                 <input
                   type="text"
                   placeholder="Search conversations..."
                   value={searchText}
                   onChange={(e) => setSearchText(e.target.value)}
-                  className="search-input"
+                  className="whatsapp-search-input"
                 />
                 {searchText && (
-                  <button onClick={clearSearch} className="clear-search">
-                    <X size={16} />
+                  <button onClick={clearSearch} className="whatsapp-clear-search">
+                    <X size={14} />
                   </button>
                 )}
               </div>
             </div>
 
-            <div className="student-list">
+            <div className="whatsapp-conversations">
               {loading ? (
-                <div className="loading">Loading conversations...</div>
+                <div className="whatsapp-loading">Loading conversations...</div>
               ) : filteredConversations.length === 0 ? (
-                <div className="no-messages">{searchText ? "No conversations found" : "No messages yet"}</div>
+                <div className="whatsapp-no-messages">{searchText ? "No conversations found" : "No messages yet"}</div>
               ) : (
                 filteredConversations.map((conversation, index) => (
                   <div
                     key={index}
-                    className={`student-item ${selectedStudent?.studentId === conversation.studentId ? "active" : ""}`}
+                    className={`whatsapp-conversation-item ${
+                      selectedStudent?.studentId === conversation.studentId ? "active" : ""
+                    }`}
                     onClick={() => {
                       setSelectedStudent(conversation)
                       readTracker.current[conversation.studentId] = new Date().toISOString()
                       saveReadTracker()
                       setConversations((prev) =>
-                        prev.map((c) =>
-                          c.studentId === conversation.studentId ? { ...c, unreadCount: 0 } : c
-                        )
+                        prev.map((c) => (c.studentId === conversation.studentId ? { ...c, unreadCount: 0 } : c)),
                       )
                     }}
                   >
-                    <div className="student-avatar">
-                      <User size={24} />
+                    <div className="whatsapp-avatar">
+                      <User size={20} />
                     </div>
-                    <div className="student-info">
-                      <div className="student-name">{conversation.studentName}</div>
-                      <div className="last-message">{conversation.lastMessage}</div>
-                    </div>
-                    <div className="message-meta">
-                      <div className="message-time">{formatTime(conversation.lastMessageTime)}</div>
-                      {conversation.unreadCount > 0 && <div className="unread-badge">{conversation.unreadCount}</div>}
+                    <div className="whatsapp-conversation-content">
+                      <div className="whatsapp-conversation-header">
+                        <span className="whatsapp-name">{conversation.studentName}</span>
+                        <span className="whatsapp-time">{formatTime(conversation.lastMessageTime)}</span>
+                      </div>
+                      <div className="whatsapp-last-message-row">
+                        <span className="whatsapp-last-message">{conversation.lastMessage}</span>
+                        {conversation.unreadCount > 0 && (
+                          <div className="whatsapp-unread-badge">{conversation.unreadCount}</div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))
@@ -290,55 +377,82 @@ function ExaminationChat() {
             </div>
           </div>
 
-          <div className="chat-main">
+          <div className="whatsapp-chat-main">
             {selectedStudent ? (
               <>
-                <div className="conversation-header">
-                  <div className="student-avatar">
-                    <User size={32} />
-                  </div>
-                  <div className="student-details">
-                    <h4>{selectedStudent.studentName}</h4>
-                    <span className="student-status">Student</span>
+                <div className="whatsapp-chat-header">
+                  <div className="whatsapp-header-content">
+                    <div className="whatsapp-avatar">
+                      <User size={24} />
+                    </div>
+                    <div className="whatsapp-header-info">
+                      <h4 className="whatsapp-header-name">{selectedStudent.studentName}</h4>
+                      <span className="whatsapp-header-status">
+                        {typingUsers[selectedStudent.studentId] ? "typing..." : "Student"}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
-                <div className="messages-container">
-                  {selectedStudent.messages.map((message, index) => (
-                    <div
-                      key={message._id || index}
-                      className={`message ${message.senderId === userId ? "sent" : "received"}`}
-                    >
-                      <div className="message-content">
-                        <p>{message.message}</p>
-                        <span className="message-time">{formatTime(message.timestamp)}</span>
-                      </div>
+                <div className="whatsapp-messages-container">
+                  {groupConsecutiveMessages(selectedStudent.messages).map((group, groupIndex) => (
+                    <div key={groupIndex} className="whatsapp-message-group">
+                      {group.senderType === "student" && <div className="whatsapp-sender-name">{group.senderName}</div>}
+                      {group.messages.map((message, messageIndex) => (
+                        <div
+                          key={message._id || messageIndex}
+                          className={`whatsapp-message ${message.senderId === userId ? "sent" : "received"}`}
+                        >
+                          <div className="whatsapp-message-bubble">
+                            <p className="whatsapp-message-text">{message.message}</p>
+                            <span className="whatsapp-message-time">{formatTime(message.timestamp)}</span>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   ))}
+
+                  {typingUsers[selectedStudent.studentId] && (
+                    <div className="whatsapp-typing-indicator">
+                      <div className="whatsapp-typing-bubble">
+                        <div className="whatsapp-typing-dots">
+                          <span></span>
+                          <span></span>
+                          <span></span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   <div ref={messagesEndRef} />
                 </div>
 
-                <div className="reply-container">
-                  <textarea
-                    value={replyText}
-                    onChange={(e) => setReplyText(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault()
-                        handleReply()
-                      }
-                    }}
-                    placeholder="Type your reply..."
-                    className="reply-input"
-                    rows={3}
-                  />
-                  <button onClick={handleReply} className="send-button" disabled={!replyText.trim()}>
-                    <Send size={20} /> Send
-                  </button>
+                <div className="whatsapp-input-container">
+                  <div className="whatsapp-input-wrapper">
+                    <textarea
+                      value={replyText}
+                      onChange={(e) => {
+                        setReplyText(e.target.value)
+                        handleTyping()
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault()
+                          handleReply()
+                        }
+                      }}
+                      placeholder="Type a message..."
+                      className="whatsapp-input"
+                      rows={1}
+                    />
+                    <button onClick={handleReply} className="whatsapp-send-button" disabled={!replyText.trim()}>
+                      <Send size={18} />
+                    </button>
+                  </div>
                 </div>
               </>
             ) : (
-              <div className="no-conversation">
+              <div className="whatsapp-no-conversation">
                 <MessageCircle size={64} />
                 <h3>Select a student to start chatting</h3>
                 <p>Choose a conversation from the sidebar to view messages</p>

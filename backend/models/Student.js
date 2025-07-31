@@ -8,13 +8,6 @@ const studentSchema = new mongoose.Schema(
       required: true,
       unique: true,
     },
-    hemisId: {
-  type: Number,
-  required: true,
-  unique: true,
-  min: 100000,
-  max: 999999,
-},
 
     fullName: {
       type: String,
@@ -142,6 +135,17 @@ const studentSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    // 💬 Chatbot Routing Memory
+lastDepartment: {
+  type: String,
+  enum: ["general", "finance", "faculty", "library", "exam_office", "lab"],
+  default: "general",
+},
+lastRoutingOffer: {
+  type: String,
+  enum: ["finance", "faculty", "library", "exam_office", "lab"],
+  default: null,
+},
 
     // 📷 Profile & Notifications
     profilePicture: {

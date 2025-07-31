@@ -1,7 +1,5 @@
 "use client"
-
 import React from "react"
-
 import { useState, useEffect } from "react"
 import { io } from "socket.io-client"
 import LibrarySidebar from "../components/LibrarySidebar"
@@ -50,6 +48,11 @@ function LibraryDashboard() {
   const [loadingApproveId, setLoadingApproveId] = useState(null)
   const [socket, setSocket] = useState(null)
 
+  // Confirmation Modal State
+  const [showConfirmModal, setShowConfirmModal] = useState(false)
+  const [pendingApprovalGroupId, setPendingApprovalGroupId] = useState(null)
+  const [pendingApprovalGroupNumber, setPendingApprovalGroupNumber] = useState("")
+
   // Transform records data - handle both array and object responses
   const records = Array.isArray(recordsData) ? recordsData : recordsData.pending || []
 
@@ -94,17 +97,24 @@ function LibraryDashboard() {
     setCurrentPage(1)
   }, [searchTerm, statusFilter, rowsPerPage])
 
-  const handleApprove = async (groupId) => {
-    try {
-      setLoadingApproveId(groupId)
-      const staffId = localStorage.getItem("userId")
+  const handleApproveClick = (groupId, groupNumber) => {
+    setPendingApprovalGroupId(groupId)
+    setPendingApprovalGroupNumber(groupNumber)
+    setShowConfirmModal(true)
+  }
 
+  const handleConfirmApprove = async () => {
+    try {
+      setLoadingApproveId(pendingApprovalGroupId)
+      const staffId = localStorage.getItem("userId")
       await approveLibrary({
-        groupId,
+        groupId: pendingApprovalGroupId,
         libraryStaffId: staffId,
       }).unwrap()
-
       setExpandedRow(null)
+      setShowConfirmModal(false)
+      setPendingApprovalGroupId(null)
+      setPendingApprovalGroupNumber("")
       toast.success("✅ Group approved successfully.")
     } catch (err) {
       console.error("❌ Approval failed:", err)
@@ -114,19 +124,23 @@ function LibraryDashboard() {
     }
   }
 
+  const handleCancelApprove = () => {
+    setShowConfirmModal(false)
+    setPendingApprovalGroupId(null)
+    setPendingApprovalGroupNumber("")
+  }
+
   const handleReject = async (groupId) => {
     const remarks = prompt("Enter reason for rejection:")
     if (!remarks) return
 
     try {
       const staffId = localStorage.getItem("userId")
-
       await rejectLibrary({
         groupId,
         remarks,
         libraryStaffId: staffId,
       }).unwrap()
-
       setExpandedRow(null)
       toast.error("❌ Group rejected.")
     } catch (err) {
@@ -138,7 +152,6 @@ function LibraryDashboard() {
   const handleRefresh = async () => {
     setIsRefreshing(true)
     toast.info("🔄 Refreshing table data...")
-
     try {
       await Promise.all([refetchRecords(), refetchStats()])
       toast.success("✅ Table refreshed successfully!")
@@ -315,7 +328,7 @@ function LibraryDashboard() {
                             <div style={{ marginTop: "10px" }}>
                               <button
                                 className="btn-approve"
-                                onClick={() => handleApprove(rec.groupId._id)}
+                                onClick={() => handleApproveClick(rec.groupId._id, rec.groupId.groupNumber)}
                                 disabled={loadingApproveId === rec.groupId._id}
                               >
                                 {loadingApproveId === rec.groupId._id ? "Approving..." : "✅ Approve"}
@@ -348,11 +361,9 @@ function LibraryDashboard() {
               >
                 ← Previous
               </button>
-
               <span className="pagination-info">
                 Page {currentPage} of {totalPages} ({filteredRecords.length} total)
               </span>
-
               <button
                 onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
                 disabled={currentPage === totalPages}
@@ -365,10 +376,34 @@ function LibraryDashboard() {
         </div>
       </div>
 
+      {/* Confirmation Modal */}
+      {showConfirmModal && (
+        <div className="confirmation-modal-overlay">
+          <div className="confirmation-modal">
+            <div className="confirmation-modal-header">
+              <h3>⚠️ Confirm Approval</h3>
+            </div>
+            <div className="confirmation-modal-body">
+              <p>
+                Are you sure you want to approve <strong>Group {pendingApprovalGroupNumber}</strong>?
+              </p>
+              <p className="confirmation-warning">This action cannot be undone.</p>
+            </div>
+            <div className="confirmation-modal-footer">
+              <button className="btn-cancel" onClick={handleCancelApprove} disabled={loadingApproveId}>
+                Cancel
+              </button>
+              <button className="btn-confirm" onClick={handleConfirmApprove} disabled={loadingApproveId}>
+                {loadingApproveId ? "Approving..." : "Yes, Approve"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <ToastContainer position="top-right" autoClose={3000} />
     </div>
   )
 }
 
 export default LibraryDashboard
-

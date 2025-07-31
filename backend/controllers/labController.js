@@ -161,6 +161,14 @@ export const approveLab = async (req, res) => {
         const examResult = await checkAndCreateExaminationRecord(student._id)
         if (examResult.created) {
           console.log(`✅ Examination record created for student ${student._id} after lab approval`)
+          // ✅ Emit real-time update for examination table to refresh
+if (global._io) {
+  global._io.emit("newStudentEligible", {
+    studentId: student._id,
+    message: "🧪 Lab approved and examination record created",
+    timestamp: new Date(),
+  })
+}
         } else {
           console.log(`ℹ️ Examination record not created for student ${student._id}: ${examResult.reason}`)
         }
