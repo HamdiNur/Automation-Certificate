@@ -374,10 +374,9 @@ export const processStudentPayment = async (req, res) => {
 }
 
 // Keep other existing functions...
-
+// 🔥 MAIN FIX: Updated getStudentFinanceSummary with correct graduation logic
 export const getStudentFinanceSummary = async (req, res) => {
   const { studentId } = req.params
-
   try {
     const student = await Student.findOne({ studentId }).select("fullName studentId _id")
     if (!student) return res.status(404).json({ message: "Student not found" })
@@ -419,13 +418,12 @@ export const getStudentFinanceSummary = async (req, res) => {
 
     const totalGradPaid = gradPayments.reduce((sum, r) => sum + r.amount, 0)
 
-    // 🔥 FIXED: Handle $0.01 remaining scenario
+    // 🔥 FIXED: Correct graduation eligibility logic
     let canGraduate = false
-
     if (gradCharge) {
       const remaining = gradCharge.amount - totalGradPaid
-      // ✅ Consider paid if remaining is ≤ $0.01 (handles your test setup)
-      canGraduate = remaining <= 0.01
+      // ✅ FIXED: Only allow graduation if remaining is $0.00 or less (negative means overpaid)
+      canGraduate = remaining <= 0
 
       console.log(
         `🎓 ${studentId}: Charge=$${gradCharge.amount}, Paid=$${totalGradPaid}, Remaining=$${remaining.toFixed(2)}, CanGraduate=${canGraduate}`,
@@ -449,7 +447,6 @@ export const getStudentFinanceSummary = async (req, res) => {
     res.status(500).json({ message: "Failed to fetch finance summary", error: err.message })
   }
 }
-
 export const adminForceApproveFinance = async (req, res) => {
   const { studentId, approvedBy = "Finance Officer" } = req.body
 

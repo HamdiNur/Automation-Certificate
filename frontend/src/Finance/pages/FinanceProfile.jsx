@@ -1,39 +1,29 @@
 // 📁 src/Finance/pages/FinanceProfile.jsx
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import FinanceSidebar from "../components/FinanceSidebar";
-import { useUser } from "../../context/UserContext"; // ✅ Import context
+import { useDispatch } from "react-redux";
+import { useGetProfileQuery } from "../../redux/api/authApi"; // ✅ RTK Query hook
+import { setCredentials } from "../../redux/slices/authSlice"; // ✅ Optional
 import "./FinanceProfile.css";
+
 function FinanceProfile() {
-  const [profile, setProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const { setUser } = useUser();
+  const dispatch = useDispatch();
 
+  const {
+    data: profileData,
+    isLoading,
+    isError,
+    error,
+  } = useGetProfileQuery();
+
+  // ✅ Optional: Store in authSlice and localStorage
   useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        const res = await fetch("http://localhost:5000/api/users/profile", {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-        });
-
-        if (!res.ok) throw new Error("Failed to fetch profile");
-
-        const data = await res.json();
-        setProfile(data.user);
-        setUser(data.user);
-        localStorage.setItem("user", JSON.stringify(data.user));
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchProfile();
-  }, [setUser]);
+    if (profileData?.user) {
+      dispatch(setCredentials({ user: profileData.user, token: localStorage.getItem("token") }));
+      localStorage.setItem("user", JSON.stringify(profileData.user));
+    }
+  }, [profileData, dispatch]);
 
   return (
     <div className="dashboard-wrapper">
@@ -42,22 +32,21 @@ function FinanceProfile() {
       <div className="dashboard-main">
         <h2>My Profile</h2>
 
-        {loading ? (
+        {isLoading ? (
           <p>Loading profile...</p>
-        ) : error ? (
-          <p style={{ color: "red" }}>❌ {error}</p>
+        ) : isError ? (
+          <p style={{ color: "red" }}>❌ {error?.data?.message || "Failed to fetch profile"}</p>
         ) : (
           <div className="student-card">
-            <p><strong>Name:</strong> {profile.fullName}</p>
-            <p><strong>Email:</strong> {profile.email}</p>
-            <p><strong>Role:</strong> {profile.role}</p>
-            <p><strong>Department:</strong> {profile.department || "N/A"}</p>
+            <p><strong>Name:</strong> {profileData?.user?.fullName}</p>
+            <p><strong>Email:</strong> {profileData?.user?.email}</p>
+            <p><strong>Role:</strong> {profileData?.user?.role}</p>
+            <p><strong>Department:</strong> {profileData?.user?.department || "N/A"}</p>
           </div>
         )}
       </div>
     </div>
   );
 }
-
 
 export default FinanceProfile;

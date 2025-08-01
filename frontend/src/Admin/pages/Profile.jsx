@@ -1,158 +1,48 @@
-import React, { useState, useEffect } from "react";
+// 📁 src/User/pages/Profile.jsx
+
+import React, { useEffect } from "react";
 import Sidebar from "../components/Sidebar";
 import "./Dashboard.css";
-import { useUser } from "../../context/UserContext"; // ✅ Import context
-
-const fetchProfile = async () => {
-  const token = localStorage.getItem("token");
-
-  const res = await fetch("http://localhost:5000/api/users/profile", {
-    method: "GET",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-  });
-
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.message || "Failed to fetch profile");
-
-  return data.user;
-};
+import { useDispatch } from "react-redux";
+import { useGetProfileQuery } from "../../redux/api/authApi"; // RTK Query
+import { setCredentials } from "../../redux/slices/authSlice"; // optional: store user
+// Optional: If you're still using context, import useUser
+// import { useUser } from "../../context/UserContext";
 
 function Profile() {
-  const [profile, setProfile] = useState(null);
-  const [editMode, setEditMode] = useState(false);
-  const [tempProfile, setTempProfile] = useState({});
-  const [passwords, setPasswords] = useState({
-    current: "",
-    new: "",
-    confirm: "",
-  });
-  const [passwordMessage, setPasswordMessage] = useState(null);
-  const { setUser } = useUser(); // ✅ Store globally
+  const dispatch = useDispatch();
+  const {
+    data: profileData,
+    isLoading,
+    isError,
+    error,
+  } = useGetProfileQuery();
 
   useEffect(() => {
-    const loadProfile = async () => {
-      try {
-        const user = await fetchProfile();
-        setProfile(user);
-        setTempProfile(user);
-        setUser(user); // ✅ Save user in context
-      } catch (err) {
-        console.error("Failed to load profile:", err.message);
-      }
-    };
-
-    loadProfile();
-  }, [setUser]);
-
-  const handleSave = () => {
-    setProfile(tempProfile);
-    setUser(tempProfile); // ✅ Update context on save too
-    setEditMode(false);
-  };
+    if (profileData?.user) {
+      dispatch(setCredentials({ user: profileData.user, token: localStorage.getItem("token") }));
+      localStorage.setItem("user", JSON.stringify(profileData.user));
+    }
+  }, [profileData, dispatch]);
 
   return (
     <div className="dashboard-wrapper">
       <Sidebar />
+
       <div className="dashboard-main">
         <h2>My Profile</h2>
 
-        {!profile ? (
+        {isLoading ? (
           <p>Loading profile...</p>
+        ) : isError ? (
+          <p style={{ color: "red" }}>❌ {error?.data?.message || "Failed to fetch profile"}</p>
         ) : (
-          <>
-            <div className="student-card">
-              {!editMode ? (
-                <>
-                  <p><strong>Name:</strong> {profile.fullName}</p>
-                  <p><strong>Email:</strong> {profile.email}</p>
-                  <p><strong>Role:</strong> {profile.role}</p>
-                  <button className="btn-view" onClick={() => setEditMode(true)}>Edit Profile</button>
-                </>
-              ) : (
-                <>
-                  <input
-                    type="text"
-                    placeholder="Name"
-                    value={tempProfile.fullName}
-                    onChange={(e) =>
-                      setTempProfile({ ...tempProfile, fullName: e.target.value })
-                    }
-                  />
-                  <input
-                    type="email"
-                    placeholder="Email"
-                    value={tempProfile.email}
-                    onChange={(e) =>
-                      setTempProfile({ ...tempProfile, email: e.target.value })
-                    }
-                  />
-                  <p><strong>Role:</strong> {profile.role}</p>
-                  <div className="modal-buttons">
-                    <button className="btn-confirm" onClick={handleSave}>Save</button>
-                    <button className="btn-cancel" onClick={() => setEditMode(false)}>Cancel</button>
-                  </div>
-                </>
-              )}
-            </div>
-
-            <div className="student-card">
-              <h3>Change Password</h3>
-              <input
-                type="password"
-                placeholder="Current Password"
-                value={passwords.current}
-                onChange={(e) => setPasswords({ ...passwords, current: e.target.value })}
-              />
-              <input
-                type="password"
-                placeholder="New Password"
-                value={passwords.new}
-                onChange={(e) => setPasswords({ ...passwords, new: e.target.value })}
-              />
-              <input
-                type="password"
-                placeholder="Confirm New Password"
-                value={passwords.confirm}
-                onChange={(e) => setPasswords({ ...passwords, confirm: e.target.value })}
-              />
-
-              <div className="modal-buttons">
-                <button
-                  className="btn-confirm"
-                  onClick={() => {
-                    if (!passwords.current || !passwords.new || !passwords.confirm) {
-                      setPasswordMessage("Please fill in all fields.");
-                      return;
-                    }
-                    if (passwords.new !== passwords.confirm) {
-                      setPasswordMessage("New passwords do not match.");
-                      return;
-                    }
-
-                    // Future backend update
-                    setPasswordMessage("✅ Password updated successfully.");
-                    setPasswords({ current: "", new: "", confirm: "" });
-                  }}
-                >
-                  Update Password
-                </button>
-              </div>
-
-              {passwordMessage && (
-                <p
-                  style={{
-                    marginTop: "10px",
-                    color: passwordMessage.includes("✅") ? "green" : "red",
-                  }}
-                >
-                  {passwordMessage}
-                </p>
-              )}
-            </div>
-          </>
+          <div className="student-card">
+            <p><strong>Name:</strong> {profileData?.user?.fullName}</p>
+            <p><strong>Email:</strong> {profileData?.user?.email}</p>
+            <p><strong>Role:</strong> {profileData?.user?.role}</p>
+            <p><strong>Department:</strong> {profileData?.user?.department || "N/A"}</p>
+          </div>
         )}
       </div>
     </div>

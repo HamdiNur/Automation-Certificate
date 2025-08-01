@@ -18,7 +18,7 @@ import StudentReexamDashboardWrapper from "./Admin/pages/StudentReexamDashboardW
 
 // Faculty Pages
 import FacultyDashboard from "./facualty/pages/FacultyDashboar";
-import FacultyRequests from "./facualty/pages/FacultyRequests";
+// import FacultyRequests from "./facualty/pages/FacultyRequests";
 import FacultyProfile from "./facualty/pages/FacultyProfile";
 import ApprovedFacultyClearance from "./facualty/pages/ApprovedFacultyClearanc";
 import RejectedFacultyClearance from "./facualty/pages/RejectedFacultyClearance";
@@ -49,7 +49,7 @@ import GroupDetails from "./Library/pages/GroupDetails";
 import FinanceDashboard from "./Finance/pages/FinanceDashboard";
 import FinancePayments from "./Finance/pages/FinancePayments";
 import FinanceProfile from "./Finance/pages/FinanceProfile";
-import PendingApprovals from "./Finance/pages/PendingApprovals";
+// import PendingApprovals from "./Finance/pages/PendingApprovals";
 import GraduationPaid from "./Finance/pages/GraduationPaid";
 import FinanceChat from "./Finance/pages/FinanceChat";
 import ExaminationChat from "./Admin/pages/ExaminationChat";
@@ -78,7 +78,7 @@ function App() {
 
           {/* Faculty */}
           <Route path="/faculty/dashboard" element={<FacultyDashboard />} />
-          <Route path="/faculty/requests" element={<FacultyRequests />} />
+          {/* <Route path="/faculty/requests" element={<FacultyRequests />} /> */}
           <Route path="/faculty/approved" element={<ApprovedFacultyClearance />} />
           <Route path="/faculty/rejected" element={<RejectedFacultyClearance />} />
           <Route path="/faculty/group-members" element={<GroupMembersPage />} />
@@ -110,7 +110,7 @@ function App() {
           <Route path="/finance/dashboard" element={<FinanceDashboard />} />
           <Route path="/finance/payments" element={<FinancePayments />} />
           <Route path="/finance/profile" element={<FinanceProfile />} />
-          <Route path="/finance/pending" element={<PendingApprovals />} />
+          {/* <Route path="/finance/pending" element={<PendingApprovals />} /> */}
           <Route path="/finance/graduation-paid" element={<GraduationPaid />} />
           <Route path="/finance/chat" element={<FinanceChat />} />
         </Route>
