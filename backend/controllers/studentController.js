@@ -606,14 +606,27 @@ export const saveFcmToken = async (req, res) => {
 
 export const getMyStudentProfile = async (req, res) => {
   try {
-    const student = await Student.findById(req.user._id)
+    // 🔍 Find the logged-in student by ID from JWT (req.user._id)
+    const student = await Student.findById(req.user._id);
 
     if (!student) {
-      return res.status(404).json({ message: "Student not found" })
+      return res.status(404).json({ message: 'Student not found' });
     }
 
-    res.json(student)
-  } catch (err) {
-    res.status(500).json({ message: "Failed to fetch student", error: err.message })
+    // 📅 Calculate how many years the student has been enrolled
+    const currentYear = new Date().getFullYear();
+    const duration = currentYear - (student.yearOfAdmission || currentYear);
+
+    // ✅ Return student data + computed duration
+    return res.status(200).json({
+      ...student.toObject(), // safer than _doc for newer Mongoose
+      duration,
+    });
+  } catch (error) {
+    console.error('❌ Error fetching student profile:', error);
+    return res.status(500).json({
+      message: 'Failed to fetch student profile',
+      error: error.message,
+    });
   }
-}
+};

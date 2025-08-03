@@ -93,40 +93,44 @@ export const getPendingLab = async (req, res) => {
 
 export const approveLab = async (req, res) => {
   try {
-    const { groupId, approvedBy, returnedItems, issues } = req.body
-    const record = await Lab.findOne({ groupId })
+    const { groupId, approvedBy, returnedItems, issues } = req.body;
+    const record = await Lab.findOne({ groupId });
 
     if (!record) {
-      return res.status(404).json({ message: "Lab record not found" })
+      return res.status(404).json({ message: "Lab record not found" });
     }
 
-    const expected = (record.expectedItems || []).map((i) => i.trim().toLowerCase())
+    const expected = (record.expectedItems || []).map(i => i.trim().toLowerCase());
     const returned = Array.isArray(returnedItems)
-      ? returnedItems.map((i) => i.trim().toLowerCase())
-      : (returnedItems || "").split(",").map((i) => i.trim().toLowerCase())
+      ? returnedItems.map(i => i.trim().toLowerCase())
+      : (returnedItems || "").split(",").map(i => i.trim().toLowerCase());
 
-    const missingItems = expected.filter((item) => !returned.includes(item))
+    const missingItems = expected.filter(item => !returned.includes(item));
 
     if (missingItems.length > 0) {
-      record.status = "Incomplete"
-      record.issues = `Missing: ${missingItems.join(", ")}`
+      record.status = "Incomplete";
+      record.issues = `Missing: ${missingItems.join(", ")}`;
     } else {
-      record.status = "Approved"
-      record.issues = issues || "None"
+      record.status = "Approved";
+      record.issues = issues || "None";
     }
 
-    record.clearedAt = new Date()
-    record.approvedBy = approvedBy || "System"
-    record.returnedItems = returned
-    record.history = record.history || []
+    record.clearedAt = new Date();
+    record.approvedBy = approvedBy || "System";
+    record.returnedItems = returned;
+
+    record.history = record.history || [];
     record.history.push({
       status: record.status,
-      reason: record.status === "Incomplete" ? "Missing returned items" : issues || "All items returned",
+      reason:
+        record.status === "Incomplete"
+          ? "Missing returned items"
+          : issues || "All items returned",
       actor: req.user._id,
       date: new Date(),
-    })
+    });
 
-    await record.save()
+    await record.save();
 
     if (record.status === "Approved") {
       await Group.updateOne(
@@ -136,13 +140,13 @@ export const approveLab = async (req, res) => {
             "clearanceProgress.lab.status": "Approved",
             "clearanceProgress.lab.date": new Date(),
           },
-        },
-      )
+        }
+      );
     }
 
-    const students = await Student.find({ groupId }).select("_id")
+    const students = await Student.find({ groupId }).select("_id");
     for (const student of students) {
-      let clearance = await Clearance.findOne({ studentId: student._id })
+      let clearance = await Clearance.findOne({ studentId: student._id });
       if (!clearance) {
         clearance = new Clearance({
           studentId: student._id,
@@ -150,37 +154,43 @@ export const approveLab = async (req, res) => {
             status: record.status,
             clearedAt: record.clearedAt,
           },
-        })
+        });
       } else {
-        clearance.lab.status = record.status
-        clearance.lab.clearedAt = record.clearedAt
+        clearance.lab.status = record.status;
+        clearance.lab.clearedAt = record.clearedAt;
       }
-      await clearance.save()
+      await clearance.save();
 
       if (record.status === "Approved") {
-        const examResult = await checkAndCreateExaminationRecord(student._id)
-        if (examResult.created) {
-          console.log(`✅ Examination record created for student ${student._id} after lab approval`)
-          // ✅ Emit real-time update for examination table to refresh
-if (global._io) {
-  global._io.emit("newStudentEligible", {
-    studentId: student._id,
-    message: "🧪 Lab approved and examination record created",
-    timestamp: new Date(),
-  })
-}
-        } else {
-          console.log(`ℹ️ Examination record not created for student ${student._id}: ${examResult.reason}`)
+        const examResult = await checkAndCreateExaminationRecord(student._id);
+        if (examResult.created && global._io) {
+          global._io.emit("newStudentEligible", {
+            studentId: student._id,
+            message: "🧪 Lab approved and examination record created",
+            timestamp: new Date(),
+          });
         }
       }
     }
 
-    if (record.status === "Approved" && global._io) {
-      global._io.emit("lab:cleared", {
+    // ✅ Emit full status update
+    if (global._io) {
+      global._io.emit("labStatusChanged", {
         groupId,
-        message: "✅ Lab cleared. Students with approved finance can now proceed to examination.",
+        status: record.status,
+        issues: record.issues,
+        expectedItems: record.expectedItems || [],
+        returnedItems: record.returnedItems || [],
         timestamp: new Date(),
-      })
+      });
+
+      if (record.status === "Approved") {
+        global._io.emit("lab:cleared", {
+          groupId,
+          message: "✅ Lab cleared. Students with approved finance can now proceed to examination.",
+          timestamp: new Date(),
+        });
+      }
     }
 
     return res.status(200).json({
@@ -188,33 +198,36 @@ if (global._io) {
         record.status === "Incomplete"
           ? "Lab marked as incomplete. Returned items were not complete."
           : "✅ Lab approved! Students with approved finance can now proceed to examination.",
-    })
+    });
   } catch (err) {
-    console.error("❌ Lab approval error:", err)
-    return res.status(500).json({ message: "Approval failed", error: err.message })
+    console.error("❌ Lab approval error:", err);
+    return res.status(500).json({ message: "Approval failed", error: err.message });
   }
-}
+};
+
 
 export const rejectLab = async (req, res) => {
   try {
-    const { groupId, issues } = req.body
+    const { groupId, issues } = req.body;
 
-    const record = await Lab.findOne({ groupId })
-    if (!record) return res.status(404).json({ message: "Lab record not found" })
+    const record = await Lab.findOne({ groupId });
+    if (!record) {
+      return res.status(404).json({ message: "Lab record not found" });
+    }
 
-    record.status = "Rejected"
-    record.issues = issues || "Unspecified"
-    record.clearedAt = null
+    record.status = "Rejected";
+    record.issues = issues || "Unspecified";
+    record.clearedAt = null;
 
-    record.history = record.history || []
+    record.history = record.history || [];
     record.history.push({
       status: "Rejected",
       reason: issues || "Unspecified",
       actor: req.user._id,
       date: new Date(),
-    })
+    });
 
-    await record.save()
+    await record.save();
 
     await Group.updateOne(
       { _id: groupId },
@@ -223,27 +236,37 @@ export const rejectLab = async (req, res) => {
           "clearanceProgress.lab.status": "Rejected",
           "clearanceProgress.lab.date": new Date(),
         },
-      },
-    )
+      }
+    );
 
-    const students = await Student.find({ groupId }).select("_id")
-
+    const students = await Student.find({ groupId }).select("_id");
     for (const student of students) {
-      const clearance = await Clearance.findOne({ studentId: student._id })
+      const clearance = await Clearance.findOne({ studentId: student._id });
       if (clearance) {
-        clearance.lab.status = "Rejected"
-        clearance.lab.clearedAt = null
-        await clearance.save()
-        console.log(`❌ Lab clearance rejected for student: ${student._id}`)
+        clearance.lab.status = "Rejected";
+        clearance.lab.clearedAt = null;
+        await clearance.save();
       }
     }
 
-    res.status(200).json({ message: "Lab record rejected and student clearances updated." })
+    if (global._io) {
+      global._io.emit("labStatusChanged", {
+        groupId,
+        status: "Rejected",
+        issues,
+        expectedItems: record.expectedItems || [],
+        returnedItems: record.returnedItems || [],
+        timestamp: new Date(),
+      });
+    }
+
+    res.status(200).json({ message: "Lab record rejected and student clearances updated." });
   } catch (err) {
-    console.error("❌ Lab rejection error:", err)
-    res.status(500).json({ error: "Rejection failed", message: err.message })
+    console.error("❌ Lab rejection error:", err);
+    res.status(500).json({ error: "Rejection failed", message: err.message });
   }
-}
+};
+
 
 export const getLabStats = async (req, res) => {
   try {
@@ -296,31 +319,35 @@ export const getLabProfile = async (req, res) => {
 }
 
 export const markLabReadyAgain = async (req, res) => {
-  const { groupId } = req.body
-  const actorId = req.user._id
+  const { groupId } = req.body;
+  const actorId = req.user._id;
 
   try {
-    const lab = await Lab.findOne({ groupId })
-    if (!lab) return res.status(404).json({ message: "Lab record not found." })
-
-    if (lab.status !== "Rejected") {
-      return res.status(400).json({ message: "Only rejected lab records can be marked ready again." })
+    const lab = await Lab.findOne({ groupId });
+    if (!lab) {
+      return res.status(404).json({ message: "Lab record not found." });
     }
 
-    lab.status = "Pending"
-    lab.issues = ""
-    lab.returnedItems = []
-    lab.clearedAt = null
+    if (lab.status !== "Rejected") {
+      return res.status(400).json({
+        message: "Only rejected lab records can be marked ready again.",
+      });
+    }
 
-    lab.history = lab.history || []
+    lab.status = "Pending";
+    lab.issues = "";
+    lab.returnedItems = [];
+    lab.clearedAt = null;
+
+    lab.history = lab.history || [];
     lab.history.push({
       status: "Pending",
       reason: "Marked ready again after rejection",
       actor: actorId,
       date: new Date(),
-    })
+    });
 
-    await lab.save()
+    await lab.save();
 
     await Group.updateOne(
       { _id: groupId },
@@ -329,13 +356,12 @@ export const markLabReadyAgain = async (req, res) => {
           "clearanceProgress.lab.status": "Pending",
           "clearanceProgress.lab.date": new Date(),
         },
-      },
-    )
+      }
+    );
 
-    const students = await Student.find({ groupId }).select("_id")
-
+    const students = await Student.find({ groupId }).select("_id");
     for (const student of students) {
-      let clearance = await Clearance.findOne({ studentId: student._id })
+      let clearance = await Clearance.findOne({ studentId: student._id });
       if (!clearance) {
         clearance = new Clearance({
           studentId: student._id,
@@ -343,28 +369,40 @@ export const markLabReadyAgain = async (req, res) => {
             status: "Pending",
             clearedAt: null,
           },
-        })
+        });
       } else {
-        clearance.lab.status = "Pending"
-        clearance.lab.clearedAt = null
+        clearance.lab.status = "Pending";
+        clearance.lab.clearedAt = null;
       }
-      await clearance.save()
+      await clearance.save();
     }
 
     if (global._io) {
+      global._io.emit("labStatusChanged", {
+        groupId,
+        status: "Pending",
+        issues: "",
+        expectedItems: lab.expectedItems || [],
+        returnedItems: [],
+        timestamp: new Date(),
+      });
+
       global._io.emit("lab-resubmission", {
         groupId,
         status: "Pending",
         timestamp: new Date(),
-      })
+      });
     }
 
-    res.status(200).json({ message: "Lab marked as ready again." })
+    res.status(200).json({ message: "Lab marked as ready again." });
   } catch (err) {
-    console.error("❌ markLabReadyAgain error:", err)
-    res.status(500).json({ message: "Failed to mark lab as ready again", error: err.message })
+    console.error("❌ markLabReadyAgain error:", err);
+    res.status(500).json({
+      message: "Failed to mark lab as ready again",
+      error: err.message,
+    });
   }
-}
+};
 
 export const getLabHistory = async (req, res) => {
   try {

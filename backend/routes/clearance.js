@@ -1,15 +1,27 @@
 import express from 'express';
-const router = express.Router(); // ✅ Define it before use
+const router = express.Router();
 
-import { approveClearance, getPhaseOneClearedStudents, getStudentClearance } from '../controllers/clearanceController.js';
+import {
+  approveClearance,
+  getPhaseOneClearedStudents,
+  getStudentClearance,
+  startIndividualClearance,
+  checkGroupClearanceStatus
+} from '../controllers/clearanceController.js';
 
-
+// ✅ Get all students who cleared group phase (Faculty, Library, Lab)
 router.get('/cleared-phaseone', getPhaseOneClearedStudents);
 
+// ✅ Start individual clearance after group phase completion
+router.patch('/start-individual/:studentId', startIndividualClearance);
 
-// Only clearance routes should go here
+// ✅ Check group clearance status for a student
+router.get('/group-status/:studentId', checkGroupClearanceStatus);
+
+// ✅ Get full clearance steps for a student
 router.get('/:studentId', getStudentClearance);
-router.post('/approve', approveClearance); // ✅ new
 
+// ✅ Approve final clearance and schedule appointment
+router.post('/approve', approveClearance);
 
 export default router;

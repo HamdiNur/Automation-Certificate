@@ -4,13 +4,13 @@ import React, { useEffect } from "react";
 import Sidebar from "../components/Sidebar";
 import "./Dashboard.css";
 import { useDispatch } from "react-redux";
-import { useGetProfileQuery } from "../../redux/api/authApi"; // RTK Query
-import { setCredentials } from "../../redux/slices/authSlice"; // optional: store user
-// Optional: If you're still using context, import useUser
-// import { useUser } from "../../context/UserContext";
+import { useSelector } from "react-redux";
+import { useGetProfileQuery } from "../../redux/api/authApi"; // ✅ RTK Query
+import { setCredentials } from "../../redux/slices/authSlice"; // ✅ Store in Redux
 
 function Profile() {
   const dispatch = useDispatch();
+
   const {
     data: profileData,
     isLoading,
@@ -40,8 +40,8 @@ function Profile() {
           <div className="student-card">
             <p><strong>Name:</strong> {profileData?.user?.fullName}</p>
             <p><strong>Email:</strong> {profileData?.user?.email}</p>
-            <p><strong>Role:</strong> {profileData?.user?.role}</p>
             <p><strong>Department:</strong> {profileData?.user?.department || "N/A"}</p>
+            <p><strong>Role:</strong> {profileData?.user?.role}</p>
           </div>
         )}
       </div>

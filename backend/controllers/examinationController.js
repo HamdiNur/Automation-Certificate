@@ -715,34 +715,104 @@ export const getPassFailSummary = async (req, res) => {
 }
 
 export const revalidateGraduationEligibility = async (req, res) => {
-  const { studentId } = req.body
-  try {
-    const exam = await Examination.findOne({ studentId })
-    if (!exam) return res.status(404).json({ message: "Examination record not found." })
+  const { studentId } = req.body;
 
-    const failed = await CourseRecord.exists({ studentId, passed: false })
-    const passedAll = !failed
+  try {
+    console.log("📥 Revalidating eligibility for:", studentId);
+
+    const exam = await Examination.findOne({ studentId });
+    if (!exam) {
+      return res.status(404).json({ message: "Examination record not found." });
+    }
+
+    const failed = await CourseRecord.exists({ studentId, passed: false });
+    const passedAll = !failed;
 
     const financeApproved = await Clearance.findOne({
       studentId,
       "finance.status": "Approved",
-    })
+    });
 
-    const canGraduate = passedAll && !!financeApproved
+    const canGraduate = passedAll && !!financeApproved;
 
-    exam.hasPassedAllCourses = passedAll
-    exam.canGraduate = canGraduate
-    await exam.save()
+    exam.hasPassedAllCourses = passedAll;
+    exam.canGraduate = canGraduate;
+    await exam.save();
+
+    console.log(`✅ Updated exam.canGraduate=${canGraduate}, passedAll=${passedAll}`);
+
+    // ✅ EMIT SOCKET EVENTS
+    if (global._io) {
+      console.log("🚀 Emitting socket events now...");
+
+      global._io.emit("examStatusChanged", {
+        studentId,
+        status: canGraduate ? "Approved" : "Rejected",
+        remarks: passedAll
+          ? "✅ You passed all courses. Eligible for graduation."
+          : "❌ You failed some courses. Not eligible yet.",
+      });
+
+      global._io.emit("course:updated", {
+        studentId,
+        message: "Course grade updated. Eligibility revalidated.",
+      });
+    } else {
+      console.warn("⚠ global._io not defined, socket not emitted");
+    }
 
     res.status(200).json({
       message: "Graduation eligibility revalidated",
       hasPassedAllCourses: passedAll,
       canGraduate,
-    })
+    });
   } catch (err) {
-    res.status(500).json({ message: "Failed to revalidate eligibility.", error: err.message })
+    console.error("❌ revalidateGraduationEligibility failed:", err);
+    res.status(500).json({
+      message: "Failed to revalidate eligibility.",
+      error: err.message,
+    });
   }
-}
+};
+
+export const updateCourseStatus = async (req, res) => {
+  const { studentId, courseCode, passed } = req.body;
+
+  try {
+    const course = await CourseRecord.findOne({ studentId, courseCode });
+    if (!course) {
+      return res.status(404).json({ message: "Course not found" });
+    }
+
+    const grade = course.grade?.toUpperCase() || "";
+    const finalPassed = !["F", "FX"].includes(grade);
+
+    course.passed = finalPassed;
+    await course.save();
+
+    // ✅ Emit real-time update before revalidation (or after)
+    global._io.emit("course:updated", {
+      studentId,
+      message: `${courseCode} status updated for student ${studentId}`,
+    });
+
+    // 🔁 Revalidate eligibility
+    await revalidateGraduationEligibility(
+      { body: { studentId } },
+      { status: () => ({ json: () => {} }) }
+    );
+
+    res.status(200).json({
+      message: "Course status updated",
+      course,
+    });
+  } catch (err) {
+    res.status(500).json({
+      message: "Error updating course",
+      error: err.message,
+    });
+  }
+};
 
 export const getEligibleStudentsSummary = async (req, res) => {
   try {

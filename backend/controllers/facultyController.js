@@ -114,13 +114,13 @@ export const getPendingFaculty = async (req, res) => {
 }
 
 // 🔹 Approve faculty clearance
-// ✅ Faculty Approval — Group-based logic
 export const approveFaculty = async (req, res) => {
   const { groupId } = req.body;
   const actorId = req.user._id;
   const now = new Date();
 
   try {
+    // ✅ Find faculty record
     const faculty = await Faculty.findOne({
       groupId: new mongoose.Types.ObjectId(groupId),
     });
@@ -129,6 +129,7 @@ export const approveFaculty = async (req, res) => {
       return res.status(404).json({ message: 'Faculty record not found.' });
     }
 
+    // ❌ Ensure required fields are submitted
     if (
       !faculty.printedThesisSubmitted ||
       !faculty.signedFormSubmitted ||
@@ -140,11 +141,12 @@ export const approveFaculty = async (req, res) => {
       });
     }
 
+    // ❌ Already approved?
     if (faculty.status === 'Approved') {
       return res.status(400).json({ message: "Faculty already approved." });
     }
 
-    // ✅ Mark as approved
+    // ✅ Approve faculty
     faculty.status = 'Approved';
     faculty.rejectionReason = '';
     faculty.facultyRemarks = '';
@@ -173,7 +175,7 @@ export const approveFaculty = async (req, res) => {
       }
     );
 
-    // ✅ Update student clearances in parallel
+    // ✅ Update each student's clearance record
     const students = await Student.find({ groupId }).select('_id');
 
     await Promise.all(students.map(async (s) => {
@@ -199,7 +201,7 @@ export const approveFaculty = async (req, res) => {
 
     console.log(`✅ Faculty clearance updated for ${students.length} students`);
 
-    // ✅ Create or update library clearance
+    // ✅ Create or update Library record
     let libraryClearance = await Library.findOne({ groupId });
 
     if (!libraryClearance) {
@@ -219,12 +221,18 @@ export const approveFaculty = async (req, res) => {
 
     await libraryClearance.save();
 
-    // ✅ Emit to Library dashboard
+    // ✅ Emit real-time socket updates
     if (global._io) {
       global._io.emit("library:new-pending", {
         groupId,
         message: "New group ready for Library clearance",
         timestamp: now,
+      });
+
+      global._io.emit("facultyStatusChanged", {
+        groupId,
+        status: "Approved",
+        rejectionReason: "",
       });
     }
 
@@ -240,39 +248,48 @@ export const approveFaculty = async (req, res) => {
   }
 };
 
+
 // 🔹 Reject faculty clearance
+
 export const rejectFaculty = async (req, res) => {
   const { groupId, rejectionReason } = req.body;
-    const actorId = req.user._id;
-
+  const actorId = req.user._id;
+  const reason = rejectionReason || 'Not provided';
+  const now = new Date();
 
   try {
     const faculty = await Faculty.findOne({ groupId });
-    if (!faculty) return res.status(404).json({ message: 'Faculty record not found.' });
+    if (!faculty) {
+      return res.status(404).json({ message: 'Faculty record not found.' });
+    }
 
+    // ✅ Update faculty status
     faculty.status = 'Rejected';
-    faculty.rejectionReason = rejectionReason || 'Not provided';
-    faculty.facultyRemarks = rejectionReason || '';
+    faculty.rejectionReason = reason;
+    faculty.facultyRemarks = reason;
     faculty.clearedAt = null;
+
     faculty.history.push({
-  status: 'Rejected',
-  reason: rejectionReason || 'Not provided',
-  actor: actorId,
-  date: new Date()
-});
+      status: 'Rejected',
+      reason,
+      actor: actorId,
+      date: now,
+    });
 
     await faculty.save();
 
+    // ✅ Update group clearance progress
     await Group.updateOne(
       { _id: groupId },
       {
         $set: {
           'clearanceProgress.faculty.status': 'Rejected',
-          'clearanceProgress.faculty.date': new Date()
-        }
+          'clearanceProgress.faculty.date': now,
+        },
       }
     );
 
+    // ✅ Update student clearance records
     const students = await Student.find({ groupId }).select('_id');
 
     for (const s of students) {
@@ -281,36 +298,48 @@ export const rejectFaculty = async (req, res) => {
         {
           $set: {
             'faculty.status': 'Rejected',
-            'faculty.rejectionReason': rejectionReason || 'Not provided',
-            'faculty.clearedAt': null
-          }
+            'faculty.rejectionReason': reason,
+            'faculty.clearedAt': null,
+          },
         },
         { upsert: true }
       );
+
       console.log(`❌ Faculty clearance rejected for student ${s._id}`);
     }
 
-    res.status(200).json({ message: 'Faculty rejected for all group members.' });
+    // ✅ Emit socket update
+    if (global._io) {
+      global._io.emit('facultyStatusChanged', {
+        groupId,
+        status: 'Rejected',
+        rejectionReason: reason,
+      });
+    }
 
+    res.status(200).json({ message: 'Faculty rejected for all group members.' });
   } catch (err) {
     console.error('❌ Faculty rejection error:', err);
     res.status(500).json({ message: 'Rejection failed.', error: err.message });
   }
 };
 
-
 export const markReadyAgain = async (req, res) => {
- const { groupId } = req.body;
-const actorId = req.user._id; // safer
+  const { groupId } = req.body;
+  const actorId = req.user._id;
+  const now = new Date();
 
   try {
     const faculty = await Faculty.findOne({ groupId });
-    if (!faculty) return res.status(404).json({ message: "Faculty record not found." });
+    if (!faculty) {
+      return res.status(404).json({ message: "Faculty record not found." });
+    }
 
     if (faculty.status !== 'Rejected') {
       return res.status(400).json({ message: "Only rejected clearances can be marked ready again." });
     }
 
+    // ✅ Reset faculty status and remarks
     faculty.status = 'Pending';
     faculty.rejectionReason = '';
     faculty.facultyRemarks = '';
@@ -320,27 +349,37 @@ const actorId = req.user._id; // safer
       status: 'Pending',
       reason: 'Resubmitted after rejection',
       actor: actorId,
-      date: new Date()
+      date: now,
     });
 
     await faculty.save();
-    global._io.emit('faculty-resubmission', {
-  groupId,
-  status: 'Pending',
-  resubmissionCount: faculty.resubmissionCount,
-  timestamp: new Date(),
-});
 
-
+    // ✅ Update Group clearanceProgress
     await Group.updateOne(
       { _id: groupId },
       {
         $set: {
           'clearanceProgress.faculty.status': 'Pending',
-          'clearanceProgress.faculty.date': new Date()
-        }
+          'clearanceProgress.faculty.date': now,
+        },
       }
     );
+
+    // ✅ Emit socket events
+    if (global._io) {
+      global._io.emit('faculty-resubmission', {
+        groupId,
+        status: 'Pending',
+        resubmissionCount: faculty.resubmissionCount,
+        timestamp: now,
+      });
+
+      global._io.emit('facultyStatusChanged', {
+        groupId,
+        status: 'Pending',
+        rejectionReason: '',
+      });
+    }
 
     res.status(200).json({ message: "Marked ready again for faculty clearance." });
   } catch (err) {
@@ -348,6 +387,7 @@ const actorId = req.user._id; // safer
     res.status(500).json({ message: "Failed to mark as ready again", error: err.message });
   }
 };
+
 
 
 // 🔹 Faculty stats
@@ -511,7 +551,9 @@ export const markAsIncomplete = async (req, res) => {
 
   try {
     const faculty = await Faculty.findOne({ groupId });
-    if (!faculty) return res.status(404).json({ message: "Faculty record not found." });
+    if (!faculty) {
+      return res.status(404).json({ message: "Faculty record not found." });
+    }
 
     const missingReasons = [];
 
@@ -532,6 +574,15 @@ export const markAsIncomplete = async (req, res) => {
     });
 
     await faculty.save();
+
+    // ✅ Emit socket event to Flutter
+    if (global._io) {
+      global._io.emit('facultyStatusChanged', {
+        groupId,
+        status: 'Incomplete',
+        rejectionReason: faculty.rejectionReason,
+      });
+    }
 
     res.status(200).json({ message: "Marked as incomplete", reasons: missingReasons });
   } catch (err) {

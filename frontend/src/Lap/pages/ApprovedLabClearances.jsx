@@ -21,7 +21,11 @@ function ApprovedLabClearances() {
   const fetchApprovedLabs = async () => {
     try {
       const res = await axios.get("http://localhost:5000/api/lab");
-      const approvedOnly = res.data.filter(item => item.status === "Approved");
+      const approvedOnly = res.data
+      .filter(item => item.status === "Approved")   
+.sort((a, b) => new Date(a.clearedAt) - new Date(b.clearedAt));
+;
+      
       setRecords(approvedOnly);
     } catch (err) {
       console.error("Error fetching approved lab records", err);

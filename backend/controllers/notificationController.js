@@ -1,12 +1,31 @@
 import Notification from '../models/notification.js';
+import Student from '../models/Student.js';
 
 export const getNotificationsByStudent = async (req, res) => {
   const { studentId } = req.params;
+
   try {
-    const notifications = await Notification.find({ studentId }).sort({ createdAt: -1 });
-    res.status(200).json(notifications);
+    // 🔍 Step 1: Find student by string ID
+    const student = await Student.findOne({ studentId });
+    if (!student) {
+      console.log(`❌ No student found for studentId: ${studentId}`);
+      return res.status(404).json({ message: 'Student not found' });
+    }
+
+    console.log(`✅ Found student _id: ${student._id}`);
+
+    // 📥 Step 2: Fetch notifications using ObjectId and sort by newest first
+    const notifications = await Notification.find({ studentId: student._id }).sort({ createdAt: -1 });
+
+    console.log(`📦 Found ${notifications.length} notifications`);
+    return res.status(200).json(notifications);
+    
   } catch (err) {
-    res.status(500).json({ message: 'Failed to fetch notifications', error: err.message });
+    console.error('❌ Error fetching notifications:', err);
+    return res.status(500).json({
+      message: 'Failed to fetch notifications',
+      error: err.message
+    });
   }
 };
 
@@ -29,3 +48,4 @@ export const createNotification = async (req, res) => {
     res.status(500).json({ message: 'Failed to create notification', error: err.message });
   }
 };
+

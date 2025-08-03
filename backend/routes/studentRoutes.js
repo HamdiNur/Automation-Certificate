@@ -14,8 +14,10 @@ import {
   approveNameCorrection,
   rejectNameCorrection,
   forwardToAdmission,
-  getNameCorrectionStatus, // ✅ NEW: Status endpoint for Flutter
+  getNameCorrectionStatus,
+  getMyStudentProfile, // ✅ NEW: Status endpoint for Flutter
 } from "../controllers/studentController.js"
+import studentAuth from "../middleware/studentAuth.js"
 
 const router = express.Router()
 
@@ -63,6 +65,7 @@ const upload = multer({
 router.post("/register", registerStudent)
 router.post("/login", loginStudent)
 router.get("/", getAllStudents)
+router.get('/me', studentAuth, getMyStudentProfile); // ✅ added
 router.get("/:id", getStudentById)
 
 // ✅ Name Correction Eligibility

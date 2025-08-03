@@ -19,7 +19,9 @@ const io = new SocketServer(server, {
   cors: {
 origin: [
   'http://localhost:3000',
-  'http://10.39.78.142:5000'
+    'http://10.165.130.142:5000',// ✅ Updated to match your actual IP
+
+  // 'http://10.39.78.142:5000'
 ]
 ,    methods: ['GET', 'POST'],
     credentials: true
@@ -41,7 +43,9 @@ io.on('connection', (socket) => {
 app.use(cors({
 origin: [
   'http://localhost:3000',
-  'http://10.39.78.142:5000'
+  'http://10.165.130.142:5000',// ✅ Updated to match your actual IP
+
+  // 'http://10.39.78.142:5000'
 ]
 ,  credentials: true
 }));
@@ -61,6 +65,8 @@ import notificationRoutes from './routes/notification.js';
 import clearanceRoutes from './routes/clearance.js';
 import courseRoutes from './routes/course.js';
 import chatRoutes from './routes/chatRoutes.js';
+import clearanceLetterRoutes from './routes/clearanceLetterRoutes.js';
+
 
 
 // Connect to DB
@@ -78,6 +84,8 @@ app.use('/api/appointments', appointmentRoutes);
 app.use('/api/groups', groupRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/clearance', clearanceRoutes);
+app.use('/api/clearanceletter', clearanceLetterRoutes);
+
 app.use('/api/courses', courseRoutes);
 app.use('/api/chat', chatRoutes);
 
