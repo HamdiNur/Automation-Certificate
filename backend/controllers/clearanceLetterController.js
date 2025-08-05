@@ -31,8 +31,13 @@ export const getClearanceLetterData = async (req, res) => {
         program: student.program,
       },
       appointment: {
-        dateFormatted: new Date(appointment.appointmentDate).toLocaleDateString(),
-        timeRange: "9:00 AM - 12:00 PM",
+dateFormatted: new Date(appointment.appointmentDate).toLocaleDateString('en-US', {
+  timeZone: 'Africa/Mogadishu',
+  weekday: 'long',     // ✅ adds the day name like "Friday"
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+}),        timeRange: "9:00 AM - 12:00 PM",
         location: "Examination Office"
       }
     });

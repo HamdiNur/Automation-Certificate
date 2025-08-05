@@ -66,7 +66,7 @@ function LibraryProfile() {
                 <p><strong>Username:</strong> {profile.username}</p>
                 <p><strong>Email:</strong> {profile.email}</p>
                 <p><strong>Role:</strong> {profile.role}</p>
-                <button className="btn-view" onClick={() => setEditMode(true)}>Edit Profile</button>
+                {/* <button className="btn-view" onClick={() => setEditMode(true)}>Edit Profile</button> */}
               </>
             ) : (
               <>
