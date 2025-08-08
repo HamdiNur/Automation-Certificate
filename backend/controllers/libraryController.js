@@ -74,12 +74,13 @@ export const approveLibrary = async (req, res) => {
 
     await libraryRecord.save();
     if (global._io) {
-  global._io.to(groupId).emit('libraryStatusChanged', {
-    groupId,
-    status: 'Approved',
-    remarks: 'Thesis book received',
-    timestamp: new Date()
-  });
+global._io.emit('libraryStatusChanged', {
+  groupId,
+  status: 'Approved',
+  remarks: 'Thesis book received',
+  timestamp: new Date()
+});
+
   console.log(`📢 Emitted 'libraryStatusChanged' for approved group ${groupId}`);
 }
 
@@ -143,11 +144,12 @@ export const approveLibrary = async (req, res) => {
 
     if (clearance?.faculty?.status === 'Approved') {
       if (global._io) {
-        global._io.emit('lab:new-eligible', {
-          groupId,
-          message: "✅ Group is now eligible for Lab clearance",
-          timestamp: new Date()
-        });
+      global._io.emit('lab:new-eligible', {
+  groupId,
+  message: "✅ Group is now eligible for Lab clearance",
+  timestamp: new Date()
+});
+
         console.log("📢 Emitted lab:new-eligible socket for group:", groupId);
       }
     }
@@ -192,12 +194,13 @@ export const rejectLibrary = async (req, res) => {
     await library.save();
     // ✅ Emit real-time socket update to group
 if (global._io) {
-  global._io.to(groupId).emit('libraryStatusChanged', {
-    groupId,
-    status: 'Rejected',
-    remarks,
-    timestamp: new Date()
-  });
+global._io.emit('libraryStatusChanged', {
+  groupId,
+  status: 'Rejected',
+  remarks,
+  timestamp: new Date()
+});
+
   console.log(`📢 Emitted 'libraryStatusChanged' for rejected group ${groupId}`);
 }
 
@@ -333,12 +336,14 @@ export const markLibraryReadyAgain = async (req, res) => {
 
     await library.save();
     if (global._io) {
-  global._io.to(groupId).emit('libraryStatusChanged', {
-    groupId,
-    status: 'Pending',
-    remarks: '',
-    timestamp: new Date()
-  });
+global._io.emit('libraryStatusChanged', {
+  groupId,
+  status: 'Pending',
+  remarks: '',
+  timestamp: new Date()
+});
+
+
   console.log(`📢 Emitted 'libraryStatusChanged' after resubmission for group ${groupId}`);
 }
 
