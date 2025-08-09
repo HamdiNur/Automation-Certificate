@@ -48,6 +48,11 @@ export const updateCourseStatus = async (req, res) => {
 
     course.passed = finalPassed;
     await course.save();
+    global._io.emit("course:updated", {
+  studentId,
+  message: `${courseCode} status updated for student ${studentId}`
+});
+
 
     // 🔁 Revalidate eligibility
     await revalidateGraduationEligibility(

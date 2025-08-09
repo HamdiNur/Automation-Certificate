@@ -20,6 +20,8 @@ const io = new SocketServer(server, {
 origin: [
   'http://localhost:3000',
     'http://10.165.130.142:5000',// ✅ Updated to match your actual IP
+    'https://automation-certificate.onrender.com',
+
 
   // 'http://10.39.78.142:5000'
 ]
@@ -30,20 +32,30 @@ origin: [
 // Expose io globally so controllers can emit events
 global._io = io;
 
-// On connection
 io.on('connection', (socket) => {
   console.log('✅ Socket connected:', socket.id);
+
+  // ✅ Allow client to join a room with their studentId
+  socket.on('joinRoom', (studentId) => {
+    if (studentId) {
+      socket.join(studentId); // This makes socket listen in that student's room
+      console.log(`🎯 Student joined room: ${studentId}`);
+    }
+  });
 
   socket.on('disconnect', () => {
     console.log('🔌 Socket disconnected:', socket.id);
   });
 });
 
+
 // Middleware
 app.use(cors({
 origin: [
   'http://localhost:3000',
   'http://10.165.130.142:5000',// ✅ Updated to match your actual IP
+  'https://automation-certificate.onrender.com',
+
 
   // 'http://10.39.78.142:5000'
 ]

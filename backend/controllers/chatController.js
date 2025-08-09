@@ -281,50 +281,53 @@ if (yesNo === "no" || yesNo === "maya") {
     }
 
     // 💾 Save student message
-    const newMessage = new Chat({
-      senderId,
-      senderType,
-      senderName,
-      message,
-      department,
-      receiverId,
-      timestamp: new Date(),
-    });
-    await newMessage.save();
+const newMessage = new Chat({
+  senderId,
+  senderType,
+  senderName,
+  message,
+  department,
+  receiverId,
+  timestamp: new Date(),
+});
+await newMessage.save();
 
-    console.log(`📤 Message saved: ${message} | Department: ${department} | Sender: ${senderName}`);
 
-    // 📡 Emit to general listeners (includes student)
-    global._io.emit("newMessage", newMessage);
+global._io.to(senderId).emit("newMessage", newMessage);   // Student gets their own message
+global._io.to(department).emit("newMessage", newMessage); // ✅
 
-    // 📡 Emit to specific department
-    if (department !== "general") {
-      global._io.emit(`department:${department}`, newMessage);
-      console.log(`📡 Message emitted to department:${department}`);
-    }
+console.log(`📤 Message saved: ${message} | Department: ${department} | Sender: ${senderName}`);
 
+// ✅ Send bot reply to student room
+// global._io.to(senderId).emit("newMessage", botMessage);
+
+// global._io.emit("newMessage", botMessage);
+  // 📢 Notify staff dashboard
+if (department !== "general") {
+  global._io.emit(`department:${department}`, newMessage);
+}
     // 🤖 Bot/system response (to student only)
-    if (botResponse && senderType === "student") {
-      const botMessage = new Chat({
-        senderId: "system",
-        senderType: "chatbot",
-        senderName: "Assistant",
-        message: botResponse,
-        department: department,
-        receiverId: senderId,
-        timestamp: new Date(),
-        isSystemMessage: shouldRoute,
-      });
-      await botMessage.save();
+  if (botResponse && senderType === "student") {
+  const botMessage = new Chat({
+    senderId: "system",
+    senderType: "chatbot",
+    senderName: "Assistant",
+    message: botResponse,
+    department,
+    receiverId: senderId,
+    timestamp: new Date(),
+    isSystemMessage: shouldRoute,
+  });
 
-      global._io.emit("newMessage", botMessage);
+  await botMessage.save();
 
-      console.log(`🤖 Bot response sent: ${botResponse}`);
+  // ✅ Send to student only (no staff)
+  global._io.to(senderId).emit("newMessage", botMessage);
 
-      return res.status(201).json({
-        studentMessage: newMessage,
-        botResponse: botMessage,
-      });
+  return res.status(201).json({
+    studentMessage: newMessage,
+    botResponse: botMessage,
+  });
     }
 
     res.status(201).json(newMessage);
@@ -361,48 +364,70 @@ export const getMessages = async (req, res) => {
     res.status(500).json({ error: "Server error while fetching messages" })
   }
 }
-
 export const replyToStudent = async (req, res) => {
-  const { message } = req.body
-  const { messageId } = req.params
+  const { message } = req.body;
+  const { messageId } = req.params;
 
-  const validSenderTypes = ["student", "chatbot", "finance", "faculty", "library", "exam_office", "lab"]
-  let senderType = req.user?.department?.toLowerCase().replace(/\s+/g, "_")
-
-  if (!validSenderTypes.includes(senderType)) {
-    senderType = "library" // Default to library for this frontend
-  }
+  const validSenderTypes = ["student", "chatbot", "finance", "faculty", "library", "exam_office", "lab"];
+  let senderType = req.user?.department?.toLowerCase().replace(/\s+/g, "_");
+  if (!validSenderTypes.includes(senderType)) senderType = "library";
 
   try {
-    if (!messageId) return res.status(400).json({ error: "Message ID missing" })
+    if (!messageId) return res.status(400).json({ error: "Message ID missing" });
 
-    const original = await Chat.findById(messageId)
-    if (!original) return res.status(404).json({ error: "Original message not found" })
+    const original = await Chat.findById(messageId);
+    if (!original) return res.status(404).json({ error: "Original message not found" });
+
+    // ✅ Always resolve the student’s Mongo _id for the room
+    const studentMongoId =
+      original.senderType === "student" ? original.senderId : original.receiverId;
+
+    if (!studentMongoId) {
+      return res.status(400).json({ error: "Could not resolve student room id" });
+    }
+
+    // (Optional) also fetch human studentId for fallback emit during debugging
+    let humanStudentId = null;
+    try {
+      const s = await Student.findById(String(studentMongoId)).select("studentId");
+      humanStudentId = s?.studentId || null;
+    } catch (_) {}
 
     const newReply = new Chat({
       senderType,
-      senderName: `${capitalize(senderType)} Department`,
+      senderName: `${senderType.charAt(0).toUpperCase() + senderType.slice(1)} Department`,
       senderId: req.user._id,
       message,
       department: original.department,
-      receiverId: original.senderId,
+      receiverId: studentMongoId,    // DB points to student
       timestamp: new Date(),
       isRead: false,
-    })
+    });
 
-    await newReply.save()
+    await newReply.save();
 
-    console.log(`📤 Staff reply: ${message} | To: ${original.senderId} | Department: ${original.department}`)
+    // 🔎 Debug: log sockets in rooms before emitting
+    const mongoRoom = String(studentMongoId);
+    const mongoRoomSize = global._io.sockets?.adapter?.rooms?.get(mongoRoom)?.size || 0;
+    console.log(`📤 Staff reply | dept=${original.department} | mongoRoom=${mongoRoom} | socketsInRoom=${mongoRoomSize}`);
 
-    // ✅ FIXED: Emit to all channels so student receives it
-    global._io.emit("newMessage", newReply) // General channel (student will receive this)
+    global._io.to(mongoRoom).emit("newMessage", newReply);
 
-    res.status(201).json(newReply)
+    // 🔁 Fallback emit to human-readable studentId (remove once everything works)
+    if (humanStudentId) {
+      const humanRoomSize = global._io.sockets?.adapter?.rooms?.get(humanStudentId)?.size || 0;
+      console.log(`📤 (fallback) humanRoom=${humanStudentId} | socketsInRoom=${humanRoomSize}`);
+      global._io.to(humanStudentId).emit("newMessage", newReply);
+    }
+
+    return res.status(201).json(newReply);
   } catch (err) {
-    console.error("❌ Reply Error:", err)
-    res.status(500).json({ error: "Failed to send reply" })
+    console.error("❌ Reply Error:", err);
+    return res.status(500).json({ error: "Failed to send reply" });
   }
-}
+};
+
+
 
 export const getMessagesByDepartment = async (req, res) => {
   const { department } = req.params
